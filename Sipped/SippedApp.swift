@@ -1,32 +1,33 @@
-//
-//  SippedApp.swift
-//  Sipped
-//
-//  Created by Rishi on 15/7/2026.
-//
-
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct SippedApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    private let environment = AppEnvironment.live
+    private let modelContainer: ModelContainer
 
+    init() {
+        let schema = Schema([
+            DrinkDefinition.self,
+            ContainerDefinition.self,
+            UserPreferences.self,
+            DrinkUsagePreference.self,
+            DrinkLog.self
+        ])
+        let inMemory = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            fatalError("Could not create Sipped store: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView(environment: environment)
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(modelContainer)
     }
 }

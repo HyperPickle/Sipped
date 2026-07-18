@@ -94,3 +94,8 @@ AGENTS.md
 
 # macOS
 .DS_Store
+
+# Generated reference/report artifacts
+artifacts/
+graphify-out/
+sipped-screen-report*.html
