@@ -507,6 +507,10 @@ struct VesselArtwork: View {
     @State private var slosh = 0.0
     @State private var previousFraction = 0.0
 
+    private var motionReduced: Bool {
+        reduceMotion || ProcessInfo.processInfo.arguments.contains("--force-reduce-motion")
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let spec = VesselStyleRegistry.spec(for: style)
@@ -532,7 +536,7 @@ struct VesselArtwork: View {
                 }
 
                 if fraction > 0.001 {
-                    FluidFillShape(spec: spec, fraction: fraction, slosh: reduceMotion ? 0 : slosh)
+                    FluidFillShape(spec: spec, fraction: fraction, slosh: motionReduced ? 0 : slosh)
                         .fill(liquidColor)
                         .mask(bodyShape.fill(.white))
 
@@ -541,7 +545,7 @@ struct VesselArtwork: View {
                             .mask(bodyShape.fill(.white))
                     }
 
-                    if showsParticles, !reduceMotion {
+                    if showsParticles, !motionReduced {
                         BubbleLayer(spec: spec, fraction: fraction)
                             .mask(FluidFillShape(spec: spec, fraction: fraction, slosh: 0).fill(.white))
                             .mask(bodyShape.fill(.white))
@@ -553,10 +557,10 @@ struct VesselArtwork: View {
                     style: StrokeStyle(lineWidth: spec.wallWidth * scale, lineJoin: .round)
                 )
             }
-            .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: fraction)
+            .animation(motionReduced ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: fraction)
             .onAppear { previousFraction = fraction }
             .onChange(of: fraction) { oldValue, newValue in
-                guard !reduceMotion, abs(newValue - oldValue) > 0.004 else {
+                guard !motionReduced, abs(newValue - oldValue) > 0.004 else {
                     previousFraction = newValue
                     return
                 }
@@ -582,7 +586,7 @@ struct VesselArtwork: View {
         return Rectangle()
             .fill(band.color)
             .frame(width: frame.width, height: height)
-            .rotationEffect(.degrees(band.slopeDegrees + (reduceMotion ? 0 : slosh * 1.4)))
+            .rotationEffect(.degrees(band.slopeDegrees + (motionReduced ? 0 : slosh * 1.4)))
             .position(x: frame.midX, y: bandY + height / 2)
     }
 }

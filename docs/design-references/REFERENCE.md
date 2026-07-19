@@ -57,6 +57,9 @@ Apply these ideas to Sipped as follows:
 - Keep implausible combinations out of the primary set, such as coffee in a pint or beer in a coffee mug.
 - A More Containers route may expose unusual compatible options.
 - Custom containers include a name and capacity while using Sipped's original vessel system.
+- Container previews use one neutral liquid treatment: no drink-specific colour, surface band, or particles.
+- Group the full container library by familiar use while keeping shared vessels discoverable through category filters.
+- Scale preview artwork relative to capacity so size differences are visible before reading the capacity label.
 - Remember the last container used for a saved drink, but never remember its previous fill amount.
 
 ## Fill interaction
@@ -88,10 +91,20 @@ Sipped intentionally changes the interaction:
 - Do not begin with a partially or fully filled vessel.
 - Every new log begins at zero.
 - The user drags upward from the bottom of the vessel to specify the amount consumed.
-- Show live volume and all four projected contributions while the fill changes.
+- Show only the live millilitre amount and percentage while the fill changes. Projected measure contributions belong on Today, not on the amount screen.
 - Provide subtle haptic snap points at 25, 50, 75, and 100 percent.
-- Provide a visible numeric-entry alternative so the drag gesture is never the only way to set an amount.
+- Tapping the millilitre value opens numeric entry so the drag gesture is never the only way to set an amount.
+- Do not add capacity presets or an intermediate review screen.
+- Carbonated drinks may show a maximum of eight soft bubbles, strictly clipped inside the currently filled liquid region. Bubbles appear only on the amount screen and are disabled when Reduce Motion is enabled.
 - Confirming the amount logs the drink immediately. There is no review stage.
+
+## Approved illustration grammar
+
+- Vessel artwork is composed from five flat semantic slots: silhouette, clipped liquid, optional surface band, optional particles, and a final vessel-coloured wall inset.
+- A full vessel is semantically 100% full; vessel-specific interior bounds define the fill range.
+- Use a dark `#38383B` vessel treatment in dark appearance and the raised-surface treatment in light appearance.
+- Do not use gradients, decorative outlines, reflections, rims, shadows, logos, text, SF Symbols, or floating/static particles inside drink or container artwork.
+- Drink-library artwork may use its approved liquid profile and surface band, but remains static. Particle motion is reserved for amount entry.
 
 ## Originality requirements
 
@@ -100,4 +113,3 @@ Sipped intentionally changes the interaction:
 - Do not reproduce the source app's exact card geometry, spacing, type scale, colour values, navigation, or button treatment.
 - Preserve native iOS behaviour, 44-point minimum touch targets, Dynamic Type, VoiceOver labelling, sufficient contrast, and Reduce Motion support.
 - Use the references to match the level of care and catalogue clarity, not the brand expression.
-

@@ -47,7 +47,13 @@ struct LibraryView: View {
                         }
                     case .containers:
                         galleryHeader("Container library", subtitle: "Find a vessel by shape or capacity")
-                        ContainerCardGrid(containers: filteredContainers) { selectedContainer = $0 }
+                        ForEach(containerGroups, id: \.title) { group in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(group.title)
+                                    .font(.headline)
+                                ContainerCardGrid(containers: group.containers) { selectedContainer = $0 }
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -112,6 +118,27 @@ struct LibraryView: View {
         }
     }
 
+    private var containerGroups: [(title: String, containers: [ContainerDefinition])] {
+        let definitions: [(String, Set<String>)] = [
+            ("Everyday", ["glass", "tall-glass", "cup", "ceramic-mug", "party-cup"]),
+            ("Coffee", ["espresso-cup", "small-takeaway", "large-takeaway"]),
+            ("Hydration", ["small-water-bottle", "water-bottle", "large-bottle", "stanley-bottle", "sports-bottle"]),
+            ("Juice & shakes", ["juice-box", "juice-bottle", "shake-cup"]),
+            ("Cans & soft drinks", ["slim-can", "standard-can", "tallboy-can", "soft-bottle", "kombucha-bottle"]),
+            ("Beer", ["beer-bottle", "beer-schooner", "beer-pint", "beer-stein"]),
+            ("Wine", ["wine-standard", "wine-bottle", "champagne-flute"]),
+            ("Spirits & cocktails", ["spirit-shot", "lowball-glass", "spirit-highball", "martini-glass"])
+        ]
+        let builtInIDs = Set(definitions.flatMap { $0.1 })
+        var groups = definitions.compactMap { title, ids -> (String, [ContainerDefinition])? in
+            let matches = filteredContainers.filter { ids.contains($0.containerID) }
+            return matches.isEmpty ? nil : (title, matches)
+        }
+        let custom = filteredContainers.filter { !builtInIDs.contains($0.containerID) }
+        if !custom.isEmpty { groups.append(("My containers", custom)) }
+        return groups
+    }
+
     private var categoryFilters: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
@@ -173,7 +200,7 @@ struct DrinkCardGrid: View {
                             .padding(.top, 5)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(drink.name).font(.headline).multilineTextAlignment(.leading).lineLimit(2, reservesSpace: true)
-                            Label(drink.category.name, systemImage: drink.category.symbol)
+                            Text(drink.category.name)
                                 .font(.caption2.weight(.semibold)).foregroundStyle(drink.category.tint).lineLimit(1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,7 +239,8 @@ struct ContainerCardGrid: View {
                 Button { action(container) } label: {
                     VStack(spacing: 10) {
                         VesselArtwork(style: container.artworkID, liquidColor: liquidColor, fillFraction: 0.68, showDetails: false)
-                            .frame(height: accessibilityLayout ? 146 : 112)
+                            .frame(height: artworkHeight(for: container))
+                            .frame(height: accessibilityLayout ? 156 : 122, alignment: .bottom)
                             .padding(.top, 4)
                         Text(container.name).font(.headline).multilineTextAlignment(.leading).lineLimit(2, reservesSpace: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -236,6 +264,12 @@ struct ContainerCardGrid: View {
                 .accessibilityIdentifier("container.\(container.containerID)")
             }
         }
+    }
+
+    private func artworkHeight(for container: ContainerDefinition) -> CGFloat {
+        let normalized = sqrt(min(max(container.capacityML, 0), 1_180) / 1_180)
+        let scale = 0.48 + normalized * 0.52
+        return (accessibilityLayout ? 156 : 122) * scale
     }
 }
 
@@ -413,7 +447,7 @@ struct CustomContainerForm: View {
     @State private var capacity = 350.0
     @State private var style = "glass"
     @State private var categories: Set<DrinkCategory> = [.other]
-    private let styles = ["glass", "tallGlass", "mug", "bottle", "can", "jar"]
+    private let styles = ["glass", "tallGlass", "mug", "bottle", "can"]
 
     var body: some View {
         NavigationStack {
