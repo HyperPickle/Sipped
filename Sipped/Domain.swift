@@ -222,11 +222,12 @@ final class UserPreferences {
     var selectedMeasureRaw: String
     var appearanceRaw: String
     var alcoholStandardRaw: String
+    var catalogSeedVersion: Int = 0
 
     init(preferencesID: String = "primary", onboardingComplete: Bool = false,
          units: DisplayUnits = .metric, preferredCategories: [DrinkCategory] = [.water, .coffee],
          selectedMeasure: MeasureKind = .fluid, appearance: AppearancePreference = .system,
-         alcoholStandard: AlcoholStandard = .australia) {
+         alcoholStandard: AlcoholStandard = .australia, catalogSeedVersion: Int = 0) {
         self.preferencesID = preferencesID
         self.onboardingComplete = onboardingComplete
         self.unitsRaw = units.rawValue
@@ -234,6 +235,7 @@ final class UserPreferences {
         self.selectedMeasureRaw = selectedMeasure.rawValue
         self.appearanceRaw = appearance.rawValue
         self.alcoholStandardRaw = alcoholStandard.rawValue
+        self.catalogSeedVersion = catalogSeedVersion
     }
 
     var units: DisplayUnits {
@@ -255,6 +257,28 @@ final class UserPreferences {
     var alcoholStandard: AlcoholStandard {
         get { AlcoholStandard(rawValue: alcoholStandardRaw) ?? .australia }
         set { alcoholStandardRaw = newValue.rawValue }
+    }
+}
+
+enum FillAmountMath {
+    static let snapFractions = [0.25, 0.50, 0.75, 1.0]
+
+    static func clampedFraction(_ fraction: Double) -> Double {
+        min(1, max(0, fraction.isFinite ? fraction : 0))
+    }
+
+    static func millilitres(for fraction: Double, capacityML: Double) -> Double {
+        max(0, capacityML.isFinite ? capacityML : 0) * clampedFraction(fraction)
+    }
+
+    static func fraction(forMillilitres amountML: Double, capacityML: Double) -> Double {
+        guard capacityML.isFinite, capacityML > 0 else { return 0 }
+        return clampedFraction(amountML / capacityML)
+    }
+
+    static func snapIndex(for fraction: Double, tolerance: Double = 0.018) -> Int? {
+        let value = clampedFraction(fraction)
+        return snapFractions.firstIndex { abs(value - $0) < tolerance }
     }
 }
 

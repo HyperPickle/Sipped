@@ -1,88 +1,372 @@
 import SwiftUI
 
-struct VesselBodyShape: Shape {
-    let style: String
+private enum VesselPrimitive {
+    case svg(String, evenOdd: Bool = false)
+    case rect(CGRect)
+    case roundedRect(CGRect, radius: CGFloat)
 
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var path = Path()
-        switch style {
-        case "bottle":
-            path.move(to: CGPoint(x: w * 0.40, y: h * 0.02))
-            path.addLine(to: CGPoint(x: w * 0.60, y: h * 0.02))
-            path.addLine(to: CGPoint(x: w * 0.61, y: h * 0.14))
-            path.addCurve(to: CGPoint(x: w * 0.77, y: h * 0.29), control1: CGPoint(x: w * 0.62, y: h * 0.20), control2: CGPoint(x: w * 0.74, y: h * 0.22))
-            path.addLine(to: CGPoint(x: w * 0.73, y: h * 0.92))
-            path.addQuadCurve(to: CGPoint(x: w * 0.64, y: h * 0.98), control: CGPoint(x: w * 0.72, y: h * 0.98))
-            path.addLine(to: CGPoint(x: w * 0.36, y: h * 0.98))
-            path.addQuadCurve(to: CGPoint(x: w * 0.27, y: h * 0.92), control: CGPoint(x: w * 0.28, y: h * 0.98))
-            path.addLine(to: CGPoint(x: w * 0.23, y: h * 0.29))
-            path.addCurve(to: CGPoint(x: w * 0.39, y: h * 0.14), control1: CGPoint(x: w * 0.26, y: h * 0.22), control2: CGPoint(x: w * 0.38, y: h * 0.20))
-            path.closeSubpath()
-        case "can":
-            path.addRoundedRect(in: CGRect(x: w * 0.22, y: h * 0.035, width: w * 0.56, height: h * 0.93), cornerSize: CGSize(width: w * 0.10, height: w * 0.10))
-        case "wine":
-            path.move(to: CGPoint(x: w * 0.25, y: h * 0.03))
-            path.addCurve(to: CGPoint(x: w * 0.50, y: h * 0.60), control1: CGPoint(x: w * 0.26, y: h * 0.38), control2: CGPoint(x: w * 0.34, y: h * 0.57))
-            path.addCurve(to: CGPoint(x: w * 0.75, y: h * 0.03), control1: CGPoint(x: w * 0.66, y: h * 0.57), control2: CGPoint(x: w * 0.74, y: h * 0.38))
-            path.closeSubpath()
-        case "takeaway":
-            path.move(to: CGPoint(x: w * 0.22, y: h * 0.12))
-            path.addLine(to: CGPoint(x: w * 0.78, y: h * 0.12))
-            path.addLine(to: CGPoint(x: w * 0.68, y: h * 0.96))
-            path.addLine(to: CGPoint(x: w * 0.32, y: h * 0.96))
-            path.closeSubpath()
-        case "carton":
-            path.move(to: CGPoint(x: w * 0.25, y: h * 0.20))
-            path.addLine(to: CGPoint(x: w * 0.43, y: h * 0.03))
-            path.addLine(to: CGPoint(x: w * 0.75, y: h * 0.20))
-            path.addLine(to: CGPoint(x: w * 0.75, y: h * 0.97))
-            path.addLine(to: CGPoint(x: w * 0.25, y: h * 0.97))
-            path.closeSubpath()
-        case "carafe":
-            path.move(to: CGPoint(x: w * 0.38, y: h * 0.03))
-            path.addLine(to: CGPoint(x: w * 0.62, y: h * 0.03))
-            path.addCurve(to: CGPoint(x: w * 0.82, y: h * 0.93), control1: CGPoint(x: w * 0.61, y: h * 0.43), control2: CGPoint(x: w * 0.82, y: h * 0.55))
-            path.addQuadCurve(to: CGPoint(x: w * 0.70, y: h * 0.98), control: CGPoint(x: w * 0.80, y: h * 0.98))
-            path.addLine(to: CGPoint(x: w * 0.30, y: h * 0.98))
-            path.addQuadCurve(to: CGPoint(x: w * 0.18, y: h * 0.93), control: CGPoint(x: w * 0.20, y: h * 0.98))
-            path.addCurve(to: CGPoint(x: w * 0.38, y: h * 0.03), control1: CGPoint(x: w * 0.18, y: h * 0.55), control2: CGPoint(x: w * 0.39, y: h * 0.43))
-        case "pint":
-            path.move(to: CGPoint(x: w * 0.22, y: h * 0.03))
-            path.addLine(to: CGPoint(x: w * 0.78, y: h * 0.03))
-            path.addLine(to: CGPoint(x: w * 0.68, y: h * 0.97))
-            path.addLine(to: CGPoint(x: w * 0.32, y: h * 0.97))
-            path.closeSubpath()
-        case "shot":
-            path.move(to: CGPoint(x: w * 0.28, y: h * 0.18))
-            path.addLine(to: CGPoint(x: w * 0.72, y: h * 0.18))
-            path.addLine(to: CGPoint(x: w * 0.65, y: h * 0.90))
-            path.addLine(to: CGPoint(x: w * 0.35, y: h * 0.90))
-            path.closeSubpath()
-        case "jar":
-            path.addRoundedRect(in: CGRect(x: w * 0.18, y: h * 0.10, width: w * 0.64, height: h * 0.87), cornerSize: CGSize(width: w * 0.10, height: w * 0.10))
-        case "espresso":
-            path.addRoundedRect(in: CGRect(x: w * 0.22, y: h * 0.30, width: w * 0.56, height: h * 0.48), cornerSize: CGSize(width: w * 0.10, height: w * 0.10))
-        case "cup":
-            path.addRoundedRect(in: CGRect(x: w * 0.18, y: h * 0.18, width: w * 0.64, height: h * 0.62), cornerSize: CGSize(width: w * 0.12, height: w * 0.12))
-        case "mug", "stein":
-            path.addRoundedRect(in: CGRect(x: w * 0.15, y: h * 0.12, width: w * 0.63, height: h * 0.72), cornerSize: CGSize(width: w * 0.10, height: w * 0.10))
-        case "tumbler":
-            path.move(to: CGPoint(x: w * 0.20, y: h * 0.15))
-            path.addLine(to: CGPoint(x: w * 0.80, y: h * 0.15))
-            path.addLine(to: CGPoint(x: w * 0.71, y: h * 0.88))
-            path.addQuadCurve(to: CGPoint(x: w * 0.29, y: h * 0.88), control: CGPoint(x: w * 0.50, y: h * 0.95))
-            path.closeSubpath()
-        default:
-            let x = style == "tallGlass" ? w * 0.28 : w * 0.18
-            let width = style == "tallGlass" ? w * 0.44 : w * 0.64
-            path.addRoundedRect(in: CGRect(x: x, y: h * 0.05, width: width, height: h * 0.92), cornerSize: CGSize(width: w * 0.11, height: w * 0.11))
+    var evenOdd: Bool {
+        if case let .svg(_, evenOdd) = self { return evenOdd }
+        return false
+    }
+
+    func path(in size: CGSize) -> Path {
+        let designPath: Path
+        switch self {
+        case let .svg(data, _):
+            var parser = SVGPathParser(data)
+            designPath = parser.path()
+        case let .rect(rect):
+            designPath = Path(rect)
+        case let .roundedRect(rect, radius):
+            designPath = Path(roundedRect: rect, cornerRadius: radius)
         }
-        return path
+        return designPath.applying(VesselCanvas.transform(in: size))
     }
 }
 
+private struct VesselStrokePart {
+    let primitive: VesselPrimitive
+    let width: CGFloat
+    var lineCap: CGLineCap = .round
+    var lineJoin: CGLineJoin = .round
+}
+
+private struct VesselSpec {
+    let body: VesselPrimitive
+    var filledParts: [VesselPrimitive] = []
+    var strokeParts: [VesselStrokePart] = []
+    let interiorTop: CGFloat
+    let interiorBottom: CGFloat
+    var liquidFloor: CGFloat = 160
+    let wallWidth: CGFloat
+    let referenceWidth: CGFloat
+}
+
+private enum VesselCanvas {
+    static let designSize = CGSize(width: 120, height: 160)
+
+    static func scale(in size: CGSize) -> CGFloat {
+        min(size.width / designSize.width, size.height / designSize.height)
+    }
+
+    static func frame(in size: CGSize) -> CGRect {
+        let scale = scale(in: size)
+        let fitted = CGSize(width: designSize.width * scale, height: designSize.height * scale)
+        return CGRect(
+            x: (size.width - fitted.width) / 2,
+            y: (size.height - fitted.height) / 2,
+            width: fitted.width,
+            height: fitted.height
+        )
+    }
+
+    static func transform(in size: CGSize) -> CGAffineTransform {
+        let frame = frame(in: size)
+        let scale = scale(in: size)
+        return CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: frame.minX, ty: frame.minY)
+    }
+}
+
+enum VesselStyleRegistry {
+    static let supportedArtworkIDs: Set<String> = [
+        "glass", "tallGlass", "cup", "mug", "espresso", "takeawaySmall", "takeawayLarge",
+        "smallWaterBottle", "bottle", "largeBottle", "stanley", "sports", "juiceBox",
+        "juiceBottle", "shake", "slimCan", "can", "tallCan", "softBottle", "beerBottle",
+        "schooner", "pint", "stein", "wine", "wineBottle", "shot", "lowball", "party",
+        "martini", "flute"
+    ]
+
+    static func resolves(_ artworkID: String) -> Bool {
+        supportedArtworkIDs.contains(canonicalID(for: artworkID))
+    }
+
+    fileprivate static func canonicalID(for artworkID: String) -> String {
+        switch artworkID {
+        case "takeaway": "takeawaySmall"
+        case "carton": "juiceBox"
+        case "tumbler": "lowball"
+        case "jar": "glass"
+        case "carafe": "largeBottle"
+        default: artworkID
+        }
+    }
+
+    fileprivate static func spec(for artworkID: String) -> VesselSpec {
+        let id = canonicalID(for: artworkID)
+        switch id {
+        case "espresso":
+            return VesselSpec(
+                body: .svg("M40 106 L82 106 L78.5 142 Q77.5 150 69 150 L53 150 Q44.5 150 43.5 142 Z"),
+                strokeParts: [.init(primitive: .svg("M80 114 C89.5 112 93.5 117.5 93.5 123 C93.5 129.5 89 133.5 80.5 132"), width: 6.5)],
+                interiorTop: 106, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 48
+            )
+        case "mug":
+            return VesselSpec(
+                body: .roundedRect(CGRect(x: 20, y: 58, width: 66, height: 92), radius: 13),
+                strokeParts: [.init(primitive: .svg("M84 78 C101 74 109 84 109 95 C109 107 99 116 84 112"), width: 11)],
+                interiorTop: 58, interiorBottom: 150, liquidFloor: 158, wallWidth: 8, referenceWidth: 74
+            )
+        case "takeawaySmall":
+            return VesselSpec(
+                body: .svg("M35 67 L85 67 L79 144 Q78 150 70 150 L50 150 Q42 150 41 144 Z"),
+                filledParts: [
+                    .svg("M38 46 L82 42.5 L84.5 56 L35.5 58 Z"),
+                    .roundedRect(CGRect(x: 30, y: 56, width: 60, height: 11), radius: 2.5)
+                ],
+                interiorTop: 67, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 58
+            )
+        case "takeawayLarge":
+            return VesselSpec(
+                body: .svg("M33 44 L87 44 L80 144 Q79 150 70 150 L50 150 Q41 150 40 144 Z"),
+                filledParts: [
+                    .svg("M36 22 L84 18.5 L86.5 33 L33.5 35 Z"),
+                    .roundedRect(CGRect(x: 28, y: 33, width: 64, height: 12), radius: 2.5)
+                ],
+                interiorTop: 44, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 62
+            )
+        case "glass":
+            return VesselSpec(
+                body: .svg("M36 66 L84 66 L78 144 Q77 150 69 150 L51 150 Q44 150 42 144 Z"),
+                interiorTop: 66, interiorBottom: 150, liquidFloor: 158, wallWidth: 8, referenceWidth: 56
+            )
+        case "tallGlass":
+            return VesselSpec(
+                body: .svg("M38 30 L82 30 L77 144 Q76 150 69 150 L51 150 Q44 150 43 144 Z"),
+                interiorTop: 30, interiorBottom: 150, liquidFloor: 158, wallWidth: 8, referenceWidth: 52
+            )
+        case "bottle":
+            let body = "M51 6 L69 6 L71 18 C76 26 86 34 87 48 L87 54 C87 57.5 82.5 57.5 82.5 61 C82.5 64.5 87 64.5 87 68 C87 71.5 82.5 71.5 82.5 75 C82.5 78.5 87 78.5 87 82 L87 96 C87 102 84 104 84 110 C84 116 87 118 87 124 L87 134 Q87 150 71 150 L49 150 Q33 150 33 134 L33 124 C33 118 36 116 36 110 C36 104 33 102 33 96 L33 82 C33 78.5 37.5 78.5 37.5 75 C37.5 71.5 33 71.5 33 68 C33 64.5 37.5 64.5 37.5 61 C37.5 57.5 33 57.5 33 54 L33 48 C34 34 44 26 49 18 Z"
+            return VesselSpec(body: .svg(body), interiorTop: 6, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 60)
+        case "largeBottle":
+            return VesselSpec(
+                body: .svg("M48 27 L72 27 C82 32 88 44 88 62 L88 140 Q88 150 78 150 L42 150 Q32 150 32 140 L32 62 C32 44 38 32 48 27 Z"),
+                filledParts: [
+                    .roundedRect(CGRect(x: 46, y: 8, width: 28, height: 16), radius: 4),
+                    .roundedRect(CGRect(x: 48, y: 23, width: 24, height: 4.5), radius: 2)
+                ],
+                interiorTop: 27, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 62
+            )
+        case "slimCan":
+            return VesselSpec(
+                body: .svg("M44 50 L76 50 L79 58 L79 141 L76 150 L44 150 L41 141 L41 58 Z"),
+                interiorTop: 50, interiorBottom: 150, liquidFloor: 158, wallWidth: 6, referenceWidth: 44
+            )
+        case "can":
+            return VesselSpec(
+                body: .svg("M40 30 L80 30 L86 44 L86 136 L80 150 L40 150 L34 136 L34 44 Z"),
+                interiorTop: 30, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 58
+            )
+        case "tallCan":
+            return VesselSpec(
+                body: .svg("M40 6 L80 6 L86 20 L86 136 L80 150 L40 150 L34 136 L34 20 Z"),
+                interiorTop: 6, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 58
+            )
+        case "softBottle":
+            return VesselSpec(
+                body: .svg("M53 10 L67 10 L68 20 C73 27 82 33 83 46 L83 92 C83 98 80 100 80 106 C80 112 83 114 83 120 L83 136 Q83 150 69 150 L51 150 Q37 150 37 136 L37 120 C37 114 40 112 40 106 C40 100 37 98 37 92 L37 46 C38 33 47 27 52 20 Z"),
+                interiorTop: 10, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 52
+            )
+        case "beerBottle":
+            return VesselSpec(
+                body: .svg("M55 24 C54.5 38 53 50 52 58 C50 76 41 80 41 94 L41 141 Q41 150 50 150 L70 150 Q79 150 79 141 L79 94 C79 80 70 76 68 58 C67 50 65.5 38 65 24 Z"),
+                filledParts: [.roundedRect(CGRect(x: 51, y: 18, width: 18, height: 6.5), radius: 2)],
+                interiorTop: 24, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 44
+            )
+        case "schooner":
+            return VesselSpec(
+                body: .svg("M35 44 L85 44 L78 144 Q77 150 69 150 L51 150 Q43 150 42 144 Z"),
+                interiorTop: 44, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 58
+            )
+        case "pint":
+            return VesselSpec(
+                body: .svg("M31 14 L89 14 L81 142 Q80 150 70 150 L50 150 Q40 150 39 142 Z"),
+                interiorTop: 14, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 66
+            )
+        case "stein":
+            return VesselSpec(
+                body: .roundedRect(CGRect(x: 22, y: 46, width: 62, height: 104), radius: 10),
+                strokeParts: [.init(primitive: .svg("M82 68 C100 64 108 76 108 89 C108 104 97 114 82 110"), width: 11)],
+                interiorTop: 46, interiorBottom: 150, liquidFloor: 158, wallWidth: 8, referenceWidth: 70
+            )
+        case "wine":
+            return VesselSpec(
+                body: .svg("M42 48 C40 68 46 84 60 88 C74 84 80 68 78 48 Z"),
+                filledParts: [
+                    .rect(CGRect(x: 58.2, y: 86, width: 3.6, height: 57)),
+                    .roundedRect(CGRect(x: 42, y: 143, width: 36, height: 5), radius: 2.5)
+                ],
+                interiorTop: 48, interiorBottom: 88, liquidFloor: 94, wallWidth: 6, referenceWidth: 44
+            )
+        case "wineBottle":
+            return VesselSpec(
+                body: .svg("M55 13 L65 13 L65 50 C65 61 82 63 82 80 L82 140 Q82 150 71 150 L49 150 Q38 150 38 140 L38 80 C38 63 55 61 55 50 Z"),
+                filledParts: [.roundedRect(CGRect(x: 52, y: 6, width: 16, height: 8), radius: 2)],
+                interiorTop: 13, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 50
+            )
+        case "shake":
+            return VesselSpec(
+                body: .svg("M35 53 L85 53 L78 146 Q77 152 69 152 L51 152 Q43 152 42 146 Z"),
+                filledParts: [
+                    .svg("M28 41 L35.5 21 L33.3 10.5 Q32.9 8.2 35.5 7.7 L50.8 5.8 Q53.3 5.5 53.9 7.9 L56.5 12.5 C66 13 76 16.5 82.5 21 C86.5 24 88 28.5 86 31 L92.5 41 Z M58.5 17.5 C65.5 18.3 72.5 20.5 78 24.5 Q80 26.4 77.8 28.2 C71.5 26.8 64 24.3 58.6 22.6 Q56.3 20 58.5 17.5 Z", evenOdd: true),
+                    .roundedRect(CGRect(x: 26, y: 41, width: 68, height: 12), radius: 2.5)
+                ],
+                interiorTop: 53, interiorBottom: 152, liquidFloor: 160, wallWidth: 6.3, referenceWidth: 56
+            )
+        case "cup":
+            return VesselSpec(
+                body: .svg("M30 84 L90 84 L84 132 Q82 144 68 144 L52 144 Q38 144 36 132 Z"),
+                strokeParts: [.init(primitive: .svg("M88 94 C101 92 105 100 104 106 C103 114 96 120 87 118"), width: 9)],
+                interiorTop: 84, interiorBottom: 144, liquidFloor: 152, wallWidth: 7, referenceWidth: 66
+            )
+        case "juiceBox":
+            return VesselSpec(
+                body: .roundedRect(CGRect(x: 38, y: 52, width: 44, height: 98), radius: 4),
+                strokeParts: [.init(primitive: .svg("M70 55 L70 32 L57 36"), width: 5.5)],
+                interiorTop: 52, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 50
+            )
+        case "juiceBottle":
+            return VesselSpec(
+                body: .svg("M50 33 L70 33 L70 44 C70 50 84 52 85 64 L85 136 Q85 150 71 150 L49 150 Q35 150 35 136 L35 64 C36 52 50 50 50 44 Z"),
+                filledParts: [
+                    .roundedRect(CGRect(x: 46, y: 18, width: 28, height: 10), radius: 3),
+                    .roundedRect(CGRect(x: 48, y: 27, width: 24, height: 6), radius: 2.5)
+                ],
+                interiorTop: 33, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 56
+            )
+        case "party":
+            return VesselSpec(
+                body: .svg("M34 46 L86 46 L76 146 Q75 152 68 152 L52 152 Q45 152 44 146 Z"),
+                filledParts: [.roundedRect(CGRect(x: 30, y: 36, width: 60, height: 11), radius: 3.5)],
+                interiorTop: 46, interiorBottom: 152, liquidFloor: 160, wallWidth: 6.3, referenceWidth: 58
+            )
+        case "stanley":
+            return VesselSpec(
+                body: .svg("M33 40 L87 40 L82 144 Q81.5 150 74 150 L46 150 Q38.5 150 38 144 Z"),
+                filledParts: [
+                    .roundedRect(CGRect(x: 50, y: 6, width: 5, height: 24), radius: 2.5),
+                    .roundedRect(CGRect(x: 30, y: 26, width: 60, height: 6), radius: 2),
+                    .roundedRect(CGRect(x: 32, y: 31, width: 56, height: 10), radius: 2.5)
+                ],
+                strokeParts: [.init(primitive: .svg("M85 58 L98 58 Q104 58 104 64 L104 92 Q104 98 98 98 L86 98"), width: 8.5)],
+                interiorTop: 40, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 60
+            )
+        case "sports":
+            return VesselSpec(
+                body: .svg("M40 39 C32 40 29 44 30 49 C31 55 39 56 39 62 C39 68 30 67 30 77 L30 138 Q30 150 43 150 L77 150 Q90 150 90 138 L90 77 C90 67 81 68 81 62 C81 56 89 55 90 49 C91 44 88 40 80 39 Z"),
+                filledParts: [
+                    .roundedRect(CGRect(x: 55, y: 12, width: 10, height: 10), radius: 2),
+                    .svg("M51 14 Q51 5 60 5 Q69 5 69 14 Z"),
+                    .roundedRect(CGRect(x: 36, y: 21, width: 48, height: 18), radius: 4)
+                ],
+                interiorTop: 39, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 66
+            )
+        case "smallWaterBottle":
+            let body = "M50 21 C50 30 35 36 33 52 L33 60 C33 63.5 29.5 63.5 29.5 67 C29.5 70.5 33 70.5 33 74 L33 104 C33 107.5 29.5 107.5 29.5 111 C29.5 114.5 33 114.5 33 118 L33 136 Q33 150 47 150 L73 150 Q87 150 87 136 L87 118 C87 114.5 90.5 114.5 90.5 111 C90.5 107.5 87 107.5 87 104 L87 74 C87 70.5 90.5 70.5 90.5 67 C90.5 63.5 87 63.5 87 60 L87 52 C85 36 70 30 70 21 Z"
+            return VesselSpec(
+                body: .svg(body),
+                filledParts: [.roundedRect(CGRect(x: 50, y: 10, width: 20, height: 12), radius: 3)],
+                interiorTop: 21, interiorBottom: 150, liquidFloor: 158, wallWidth: 6.3, referenceWidth: 68
+            )
+        case "martini":
+            return VesselSpec(
+                body: .svg("M24 40 L96 40 L63 79 L63 82 L57 82 L57 79 Z"),
+                filledParts: [
+                    .rect(CGRect(x: 58.3, y: 80, width: 3.4, height: 58)),
+                    .roundedRect(CGRect(x: 42, y: 138, width: 36, height: 5), radius: 2.5)
+                ],
+                interiorTop: 40, interiorBottom: 82, liquidFloor: 88, wallWidth: 6, referenceWidth: 78
+            )
+        case "flute":
+            return VesselSpec(
+                body: .svg("M47 16 C46 46 48 64 60 68 C72 64 74 46 73 16 Z"),
+                filledParts: [
+                    .rect(CGRect(x: 58.3, y: 66, width: 3.4, height: 72)),
+                    .roundedRect(CGRect(x: 42, y: 138, width: 36, height: 5), radius: 2.5)
+                ],
+                interiorTop: 16, interiorBottom: 68, liquidFloor: 74, wallWidth: 5.5, referenceWidth: 32
+            )
+        case "lowball":
+            return VesselSpec(
+                body: .svg("M34 96 L86 96 L84 145 Q84 152 76 152 L44 152 Q36 152 36 145 Z"),
+                interiorTop: 96, interiorBottom: 152, liquidFloor: 160, wallWidth: 7, referenceWidth: 58
+            )
+        case "shot":
+            return VesselSpec(
+                body: .svg("M44 116 L76 116 L72 148 Q71 152 66 152 L54 152 Q49 152 48 148 Z"),
+                interiorTop: 116, interiorBottom: 152, liquidFloor: 160, wallWidth: 6.3, referenceWidth: 38
+            )
+        default:
+            return spec(for: "glass")
+        }
+    }
+}
+
+private struct SVGPathParser {
+    private let characters: [Character]
+    private var index = 0
+
+    init(_ data: String) { characters = Array(data) }
+
+    mutating func path() -> Path {
+        var result = Path()
+        var command: Character?
+        while true {
+            skipSeparators()
+            guard index < characters.count else { break }
+            if characters[index].isLetter {
+                command = characters[index]
+                index += 1
+            }
+            guard let command else { break }
+            switch command {
+            case "M":
+                guard let x = number(), let y = number() else { return result }
+                result.move(to: CGPoint(x: x, y: y))
+            case "L":
+                guard let x = number(), let y = number() else { return result }
+                result.addLine(to: CGPoint(x: x, y: y))
+            case "C":
+                guard let x1 = number(), let y1 = number(), let x2 = number(), let y2 = number(),
+                      let x = number(), let y = number() else { return result }
+                result.addCurve(to: CGPoint(x: x, y: y), control1: CGPoint(x: x1, y: y1), control2: CGPoint(x: x2, y: y2))
+            case "Q":
+                guard let x1 = number(), let y1 = number(), let x = number(), let y = number() else { return result }
+                result.addQuadCurve(to: CGPoint(x: x, y: y), control: CGPoint(x: x1, y: y1))
+            case "Z", "z":
+                result.closeSubpath()
+            default:
+                return result
+            }
+        }
+        return result
+    }
+
+    private mutating func skipSeparators() {
+        while index < characters.count, characters[index].isWhitespace || characters[index] == "," { index += 1 }
+    }
+
+    private mutating func number() -> CGFloat? {
+        skipSeparators()
+        let start = index
+        if index < characters.count, (characters[index] == "-" || characters[index] == "+") { index += 1 }
+        while index < characters.count, characters[index].isNumber { index += 1 }
+        if index < characters.count, characters[index] == "." {
+            index += 1
+            while index < characters.count, characters[index].isNumber { index += 1 }
+        }
+        guard start < index, let value = Double(String(characters[start..<index])) else { return nil }
+        return CGFloat(value)
+    }
+}
+
+private struct VesselBodyShape: Shape {
+    let style: String
+    func path(in rect: CGRect) -> Path { VesselStyleRegistry.spec(for: style).body.path(in: rect.size) }
+}
+
 private struct FluidFillShape: Shape {
+    let spec: VesselSpec
     var fraction: Double
     var slosh: Double
 
@@ -92,25 +376,123 @@ private struct FluidFillShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        let fill = max(0, min(1, fraction))
-        let baseline = rect.maxY - rect.height * fill
-        let amplitude = min(rect.height * 0.028, 7) * slosh
+        let frame = VesselCanvas.frame(in: rect.size)
+        let scale = VesselCanvas.scale(in: rect.size)
+        let fill = FillAmountMath.clampedFraction(fraction)
+        let top = frame.minY + spec.interiorTop * scale
+        let bottom = frame.minY + spec.interiorBottom * scale
+        let floor = frame.minY + spec.liquidFloor * scale
+        let baseline = bottom - (bottom - top) * fill
+        let amplitude = min((bottom - top) * 0.018, 5) * slosh
         var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: baseline))
+        path.move(to: CGPoint(x: frame.minX, y: baseline))
         path.addCurve(
-            to: CGPoint(x: rect.midX, y: baseline),
-            control1: CGPoint(x: rect.width * 0.16, y: baseline + amplitude),
-            control2: CGPoint(x: rect.width * 0.34, y: baseline + amplitude)
+            to: CGPoint(x: frame.midX, y: baseline),
+            control1: CGPoint(x: frame.minX + frame.width * 0.16, y: baseline + amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.34, y: baseline + amplitude)
         )
         path.addCurve(
-            to: CGPoint(x: rect.maxX, y: baseline),
-            control1: CGPoint(x: rect.width * 0.66, y: baseline - amplitude),
-            control2: CGPoint(x: rect.width * 0.84, y: baseline - amplitude)
+            to: CGPoint(x: frame.maxX, y: baseline),
+            control1: CGPoint(x: frame.minX + frame.width * 0.66, y: baseline - amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.84, y: baseline - amplitude)
         )
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: frame.maxX, y: floor))
+        path.addLine(to: CGPoint(x: frame.minX, y: floor))
         path.closeSubpath()
         return path
+    }
+}
+
+struct SurfaceBandSpec {
+    let color: Color
+    let relativeHeight: CGFloat
+    var slopeDegrees: Double = 0
+}
+
+struct DrinkVisualSpec {
+    let liquid: Color
+    let band: SurfaceBandSpec?
+    let isCarbonated: Bool
+    let prefersDarkText: Bool
+
+    static let carbonatedIDs: Set<String> = [
+        "water-sparkling", "soft-cola", "soft-lemonade", "energy-regular", "energy-sugarfree",
+        "kombucha-original", "kombucha-ginger", "beer-lager", "beer-ale"
+    ]
+
+    static func profile(definitionID: String?, category: DrinkCategory) -> DrinkVisualSpec {
+        func color(_ hex: UInt32) -> Color {
+            Color(
+                red: Double((hex >> 16) & 0xff) / 255,
+                green: Double((hex >> 8) & 0xff) / 255,
+                blue: Double(hex & 0xff) / 255
+            )
+        }
+        func profile(_ liquid: UInt32, _ band: UInt32? = nil, _ height: CGFloat = 0.08, slope: Double = 0) -> DrinkVisualSpec {
+            let id = definitionID ?? ""
+            let red = Double((liquid >> 16) & 0xff) / 255
+            let green = Double((liquid >> 8) & 0xff) / 255
+            let blue = Double(liquid & 0xff) / 255
+            let relativeLuminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            return DrinkVisualSpec(
+                liquid: color(liquid),
+                band: band.map { SurfaceBandSpec(color: color($0), relativeHeight: height, slopeDegrees: slope) },
+                isCarbonated: carbonatedIDs.contains(id),
+                prefersDarkText: relativeLuminance > 0.56
+            )
+        }
+
+        switch definitionID {
+        case "water-still": return profile(0x3cc9f7)
+        case "water-sparkling": return profile(0x5ed4f9)
+        case "coffee-espresso": return profile(0x52301a, 0xe8c194)
+        case "coffee-long-black": return profile(0x4a2b16, 0xd9a86b, 0.04)
+        case "coffee-flat-white": return profile(0xecc28d, 0xfbe7c6)
+        case "coffee-latte": return profile(0xecc28d, 0xfbe7c6)
+        case "coffee-cappuccino": return profile(0xecc28d, 0xfbe7c6, 0.12)
+        case "coffee-filter": return profile(0x5a3620)
+        case "coffee-cold-brew": return profile(0x3f2413)
+        case "coffee-iced": return profile(0xc99a63, 0xecd9bd)
+        case "tea-black": return profile(0xb3702c)
+        case "tea-green": return profile(0xa8b558)
+        case "tea-chai": return profile(0xc9945a, 0xe8cba3)
+        case "soft-cola": return profile(0x1b120e, 0xb8b193, 0.04, slope: -1.5)
+        case "soft-lemonade": return profile(0xf2d16b, 0xf9e9b8, 0.04)
+        case "energy-regular": return profile(0xcddc4e)
+        case "energy-sugarfree": return profile(0x7fd8d2)
+        case "juice-orange": return profile(0xe8a548, 0xf4c886)
+        case "juice-apple": return profile(0xd9b45a, 0xefdca3)
+        case "milk-dairy": return profile(0xf2ead8)
+        case "milk-oat": return profile(0xe3d3b4)
+        case "smoothie-fruit": return profile(0xc2517c, 0xde7ea3)
+        case "smoothie-green": return profile(0x7da05a, 0xa8c284)
+        case "kombucha-original": return profile(0xc78f3f)
+        case "kombucha-ginger": return profile(0xd07a2e)
+        case "beer-lager": return profile(0xe9b23c, 0xf7ecd4, 0.11)
+        case "beer-ale": return profile(0xc07a2a, 0xf3e3c2, 0.11)
+        case "wine-red": return profile(0x7c1a2b)
+        case "wine-white": return profile(0xd9b45a)
+        case "spirits-whisky": return profile(0xb98336)
+        case "spirits-gin": return profile(0xcfe0da)
+        case "other-broth": return profile(0xc99a63)
+        case "other-custom": return profile(0x7fa89f)
+        default:
+            switch category {
+            case .water: return profile(0x3cc9f7)
+            case .coffee: return profile(0x5a3620, 0xe8c194)
+            case .tea: return profile(0xb3702c)
+            case .softDrinks: return profile(0x1b120e, 0xb8b193, 0.04)
+            case .energyDrinks: return profile(0xcddc4e)
+            case .juice: return profile(0xe8a548, 0xf4c886)
+            case .milk: return profile(0xf2ead8)
+            case .smoothies: return profile(0xc2517c, 0xde7ea3)
+            case .kombucha: return profile(0xc78f3f)
+            case .beer: return profile(0xe9b23c, 0xf7ecd4, 0.11)
+            case .wine: return profile(0x7c1a2b)
+            case .spirits: return profile(0xb98336)
+            case .other: return profile(0x7fa89f)
+            }
+        }
     }
 }
 
@@ -120,44 +502,56 @@ struct VesselArtwork: View {
     let liquidColor: Color
     var fillFraction: Double
     var showDetails = true
+    var surfaceBand: SurfaceBandSpec? = nil
+    var showsParticles = false
     @State private var slosh = 0.0
     @State private var previousFraction = 0.0
 
     var body: some View {
         GeometryReader { proxy in
-            let fraction = max(0, min(1, fillFraction))
-            let body = VesselBodyShape(style: style)
-            let strokeWidth = max(1.6, min(3.2, proxy.size.width * 0.028))
+            let spec = VesselStyleRegistry.spec(for: style)
+            let fraction = FillAmountMath.clampedFraction(fillFraction)
+            let scale = VesselCanvas.scale(in: proxy.size)
+            let bodyShape = VesselBodyShape(style: style)
             ZStack {
-                handle(in: proxy.size, width: strokeWidth)
-                body.fill(SippedTheme.surface.opacity(0.92))
-                FluidFillShape(fraction: fraction, slosh: reduceMotion ? 0 : slosh)
-                    .fill(
-                        LinearGradient(
-                            colors: [liquidColor.opacity(0.82), liquidColor],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                ForEach(Array(spec.strokeParts.enumerated()), id: \.offset) { _, part in
+                    part.primitive.path(in: proxy.size)
+                        .stroke(
+                            SippedTheme.vessel,
+                            style: StrokeStyle(
+                                lineWidth: part.width * scale,
+                                lineCap: part.lineCap,
+                                lineJoin: part.lineJoin
+                            )
                         )
-                    )
-                    .mask(body)
-                if fraction > 0.015 {
-                    Capsule()
-                        .fill(Color.white.opacity(style == "pint" || style == "mug" ? 0.55 : 0.28))
-                        .frame(width: proxy.size.width * surfaceWidth, height: max(2, min(7, proxy.size.height * 0.035)))
-                        .rotationEffect(.degrees(reduceMotion ? 0 : slosh * 2.8))
-                        .offset(y: proxy.size.height * (0.50 - fraction) + surfaceOffset)
-                        .mask(body)
                 }
-                body.stroke(SippedTheme.ink.opacity(0.78), lineWidth: strokeWidth)
-                if showDetails { details(in: proxy.size, width: strokeWidth) }
-                Path { path in
-                    path.move(to: CGPoint(x: proxy.size.width * 0.36, y: proxy.size.height * 0.22))
-                    path.addCurve(to: CGPoint(x: proxy.size.width * 0.34, y: proxy.size.height * 0.56),
-                                  control1: CGPoint(x: proxy.size.width * 0.31, y: proxy.size.height * 0.32),
-                                  control2: CGPoint(x: proxy.size.width * 0.31, y: proxy.size.height * 0.46))
+                bodyShape.fill(SippedTheme.vessel)
+                ForEach(Array(spec.filledParts.enumerated()), id: \.offset) { _, part in
+                    part.path(in: proxy.size)
+                        .fill(SippedTheme.vessel, style: FillStyle(eoFill: part.evenOdd))
                 }
-                .stroke(Color.white.opacity(0.34), style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
-                .mask(body)
+
+                if fraction > 0.001 {
+                    FluidFillShape(spec: spec, fraction: fraction, slosh: reduceMotion ? 0 : slosh)
+                        .fill(liquidColor)
+                        .mask(bodyShape.fill(.white))
+
+                    if showDetails, let surfaceBand {
+                        surfaceBandView(surfaceBand, spec: spec, fraction: fraction, size: proxy.size)
+                            .mask(bodyShape.fill(.white))
+                    }
+
+                    if showsParticles, !reduceMotion {
+                        BubbleLayer(spec: spec, fraction: fraction)
+                            .mask(FluidFillShape(spec: spec, fraction: fraction, slosh: 0).fill(.white))
+                            .mask(bodyShape.fill(.white))
+                    }
+                }
+
+                bodyShape.stroke(
+                    SippedTheme.vessel,
+                    style: StrokeStyle(lineWidth: spec.wallWidth * scale, lineJoin: .round)
+                )
             }
             .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: fraction)
             .onAppear { previousFraction = fraction }
@@ -177,184 +571,78 @@ struct VesselArtwork: View {
         }
     }
 
-    private var surfaceWidth: CGFloat {
-        switch style {
-        case "bottle": 0.42
-        case "can": 0.48
-        case "wine": 0.42
-        case "tallGlass": 0.36
-        default: 0.52
-        }
-    }
-
-    private var surfaceOffset: CGFloat {
-        switch style {
-        case "espresso": 12
-        case "cup", "mug", "stein", "tumbler": 5
-        default: 0
-        }
-    }
-
-    @ViewBuilder
-    private func handle(in size: CGSize, width: CGFloat) -> some View {
-        if ["mug", "cup", "espresso", "stein"].contains(style) {
-            RoundedRectangle(cornerRadius: size.width * 0.16)
-                .stroke(SippedTheme.ink.opacity(0.78), lineWidth: width)
-                .frame(width: size.width * 0.31, height: size.height * (style == "espresso" ? 0.23 : 0.34))
-                .offset(x: size.width * 0.34, y: size.height * (style == "espresso" ? 0.10 : 0.04))
-        }
-    }
-
-    @ViewBuilder
-    private func details(in size: CGSize, width: CGFloat) -> some View {
-        if style == "wine" {
-            Path { path in
-                path.move(to: CGPoint(x: size.width * 0.5, y: size.height * 0.60))
-                path.addLine(to: CGPoint(x: size.width * 0.5, y: size.height * 0.91))
-                path.move(to: CGPoint(x: size.width * 0.30, y: size.height * 0.93))
-                path.addLine(to: CGPoint(x: size.width * 0.70, y: size.height * 0.93))
-            }.stroke(SippedTheme.ink.opacity(0.78), style: StrokeStyle(lineWidth: width, lineCap: .round))
-        }
-        if style == "takeaway" {
-            Capsule().fill(SippedTheme.ink.opacity(0.78)).frame(width: size.width * 0.66, height: max(4, size.height * 0.055)).offset(y: -size.height * 0.41)
-        }
-        if style == "can" {
-            Capsule().stroke(SippedTheme.ink.opacity(0.35), lineWidth: width * 0.75).frame(width: size.width * 0.26, height: max(3, size.height * 0.024)).offset(y: -size.height * 0.43)
-        }
-        if style == "jar" {
-            VStack(spacing: max(2, size.height * 0.018)) {
-                ForEach(0..<3, id: \.self) { _ in Capsule().fill(SippedTheme.ink.opacity(0.32)).frame(width: size.width * 0.58, height: width * 0.7) }
-            }
-            .offset(y: -size.height * 0.39)
-        }
-        if style == "carton" {
-            Path { path in
-                path.move(to: CGPoint(x: size.width * 0.43, y: size.height * 0.03))
-                path.addLine(to: CGPoint(x: size.width * 0.43, y: size.height * 0.20))
-                path.addLine(to: CGPoint(x: size.width * 0.75, y: size.height * 0.20))
-            }.stroke(SippedTheme.ink.opacity(0.45), lineWidth: width)
-        }
+    private func surfaceBandView(_ band: SurfaceBandSpec, spec: VesselSpec, fraction: Double, size: CGSize) -> some View {
+        let frame = VesselCanvas.frame(in: size)
+        let scale = VesselCanvas.scale(in: size)
+        let top = frame.minY + spec.interiorTop * scale
+        let bottom = frame.minY + spec.interiorBottom * scale
+        let liquidTop = bottom - (bottom - top) * fraction
+        let bandY = max(liquidTop, top + spec.wallWidth * scale / 2)
+        let height = max(1.5, spec.referenceWidth * band.relativeHeight * scale)
+        return Rectangle()
+            .fill(band.color)
+            .frame(width: frame.width, height: height)
+            .rotationEffect(.degrees(band.slopeDegrees + (reduceMotion ? 0 : slosh * 1.4)))
+            .position(x: frame.midX, y: bandY + height / 2)
     }
 }
 
-private struct DrinkVisualProfile {
-    let liquid: Color
-    let accent: Color
-    let symbol: String
-    let foam: Double
-    let bubbles: Int
-    let ice: Int
-    let band: Bool
-    let symbolRotation: Double
+private struct BubbleLayer: View {
+    let spec: VesselSpec
+    let fraction: Double
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let frame = VesselCanvas.frame(in: size)
+                let scale = VesselCanvas.scale(in: size)
+                let top = frame.minY + spec.interiorTop * scale
+                let bottom = frame.minY + spec.interiorBottom * scale
+                let surface = bottom - (bottom - top) * FillAmountMath.clampedFraction(fraction)
+                let filledHeight = max(0, bottom - surface)
+                guard filledHeight > 1 else { return }
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                for index in 0..<8 {
+                    let speed = 0.16 + Double(index % 3) * 0.035
+                    let phase = (time * speed + Double(index) * 0.137).truncatingRemainder(dividingBy: 1)
+                    let drift = sin(time * 0.9 + Double(index) * 1.7) * frame.width * 0.035
+                    let x = frame.midX + (Double(index % 4) - 1.5) * frame.width * 0.11 + drift
+                    let y = bottom - filledHeight * phase
+                    let diameter = max(2.5, min(6, frame.width * (0.022 + Double(index % 3) * 0.005)))
+                    let fade = min(1, phase / 0.12) * min(1, (1 - phase) / 0.22)
+                    context.opacity = 0.52 * fade
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: x - diameter / 2, y: y - diameter / 2, width: diameter, height: diameter)),
+                        with: .color(.white)
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 struct DrinkArtwork: View {
     let category: DrinkCategory
     let artworkID: String
     var definitionID: String? = nil
-    var fillFraction: Double = 0.78
+    var fillFraction: Double = 0.76
+    var showsParticles = false
+
+    var visualSpec: DrinkVisualSpec { DrinkVisualSpec.profile(definitionID: definitionID, category: category) }
+    var liquidColor: Color { visualSpec.liquid }
 
     var body: some View {
-        ZStack {
-            VesselArtwork(style: artworkID, liquidColor: liquidColor, fillFraction: fillFraction)
-                .padding(.horizontal, artworkID == "bottle" ? 2 : 7)
-            signatureDetail
-        }
-    }
-
-    var liquidColor: Color { profile.liquid }
-
-    private var profile: DrinkVisualProfile {
-        let pale = Color(red: 0.94, green: 0.91, blue: 0.80)
-        let cream = Color(red: 0.97, green: 0.89, blue: 0.69)
-        let white = Color.white.opacity(0.90)
-        switch definitionID {
-        case "water-still": return .init(liquid: .init(red: 0.20, green: 0.70, blue: 0.78), accent: white, symbol: "drop.fill", foam: 0, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "water-sparkling": return .init(liquid: .init(red: 0.33, green: 0.78, blue: 0.84), accent: white, symbol: "sparkles", foam: 0, bubbles: 5, ice: 0, band: false, symbolRotation: 0)
-        case "coffee-espresso": return .init(liquid: .init(red: 0.25, green: 0.12, blue: 0.06), accent: cream, symbol: "circle.fill", foam: 0.08, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "coffee-long-black": return .init(liquid: .init(red: 0.31, green: 0.17, blue: 0.09), accent: cream, symbol: "line.3.horizontal", foam: 0.025, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "coffee-flat-white": return .init(liquid: .init(red: 0.55, green: 0.37, blue: 0.22), accent: white, symbol: "minus", foam: 0.13, bubbles: 0, ice: 0, band: true, symbolRotation: 0)
-        case "coffee-latte": return .init(liquid: .init(red: 0.66, green: 0.46, blue: 0.27), accent: white, symbol: "leaf.fill", foam: 0.08, bubbles: 0, ice: 0, band: true, symbolRotation: -18)
-        case "coffee-cappuccino": return .init(liquid: .init(red: 0.48, green: 0.29, blue: 0.16), accent: white, symbol: "cloud.fill", foam: 0.22, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "coffee-filter": return .init(liquid: .init(red: 0.36, green: 0.20, blue: 0.10), accent: cream, symbol: "triangle.fill", foam: 0.015, bubbles: 0, ice: 0, band: false, symbolRotation: 180)
-        case "coffee-cold-brew": return .init(liquid: .init(red: 0.28, green: 0.16, blue: 0.10), accent: white, symbol: "snowflake", foam: 0, bubbles: 0, ice: 2, band: false, symbolRotation: 0)
-        case "coffee-iced": return .init(liquid: .init(red: 0.57, green: 0.38, blue: 0.24), accent: white, symbol: "cube.fill", foam: 0.05, bubbles: 0, ice: 3, band: true, symbolRotation: 12)
-        case "tea-black": return .init(liquid: .init(red: 0.52, green: 0.35, blue: 0.14), accent: cream, symbol: "leaf.fill", foam: 0, bubbles: 0, ice: 0, band: false, symbolRotation: 42)
-        case "tea-green": return .init(liquid: .init(red: 0.58, green: 0.67, blue: 0.31), accent: white, symbol: "leaf.circle.fill", foam: 0, bubbles: 0, ice: 0, band: false, symbolRotation: -16)
-        case "tea-chai": return .init(liquid: .init(red: 0.67, green: 0.47, blue: 0.27), accent: white, symbol: "sparkle", foam: 0.08, bubbles: 0, ice: 0, band: true, symbolRotation: 0)
-        case "soft-cola": return .init(liquid: .init(red: 0.30, green: 0.10, blue: 0.07), accent: .init(red: 0.94, green: 0.33, blue: 0.24), symbol: "waveform.path", foam: 0.035, bubbles: 4, ice: 0, band: true, symbolRotation: -9)
-        case "soft-lemonade": return .init(liquid: .init(red: 0.95, green: 0.73, blue: 0.16), accent: white, symbol: "sun.max.fill", foam: 0.025, bubbles: 4, ice: 0, band: false, symbolRotation: 0)
-        case "energy-regular": return .init(liquid: .init(red: 0.67, green: 0.75, blue: 0.14), accent: .init(red: 0.10, green: 0.22, blue: 0.17), symbol: "bolt.fill", foam: 0, bubbles: 3, ice: 0, band: true, symbolRotation: -7)
-        case "energy-sugarfree": return .init(liquid: .init(red: 0.36, green: 0.75, blue: 0.72), accent: white, symbol: "bolt.slash", foam: 0, bubbles: 3, ice: 0, band: false, symbolRotation: 7)
-        case "juice-orange": return .init(liquid: .init(red: 0.97, green: 0.49, blue: 0.08), accent: white, symbol: "sun.max.fill", foam: 0.018, bubbles: 0, ice: 0, band: true, symbolRotation: 0)
-        case "juice-apple": return .init(liquid: .init(red: 0.76, green: 0.69, blue: 0.18), accent: white, symbol: "apple.logo", foam: 0.018, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "milk-dairy": return .init(liquid: pale, accent: .init(red: 0.34, green: 0.55, blue: 0.72), symbol: "drop.circle.fill", foam: 0.035, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "milk-oat": return .init(liquid: .init(red: 0.82, green: 0.75, blue: 0.59), accent: .init(red: 0.28, green: 0.46, blue: 0.29), symbol: "leaf.fill", foam: 0.025, bubbles: 0, ice: 0, band: true, symbolRotation: 24)
-        case "smoothie-fruit": return .init(liquid: .init(red: 0.74, green: 0.25, blue: 0.42), accent: white, symbol: "heart.fill", foam: 0.025, bubbles: 2, ice: 0, band: true, symbolRotation: -8)
-        case "smoothie-green": return .init(liquid: .init(red: 0.31, green: 0.57, blue: 0.31), accent: white, symbol: "leaf.fill", foam: 0.025, bubbles: 2, ice: 0, band: false, symbolRotation: 22)
-        case "kombucha-original": return .init(liquid: .init(red: 0.72, green: 0.52, blue: 0.20), accent: white, symbol: "sparkles", foam: 0.025, bubbles: 5, ice: 0, band: false, symbolRotation: 0)
-        case "kombucha-ginger": return .init(liquid: .init(red: 0.79, green: 0.44, blue: 0.13), accent: white, symbol: "flame.fill", foam: 0.025, bubbles: 5, ice: 0, band: true, symbolRotation: 8)
-        case "beer-lager": return .init(liquid: .init(red: 0.88, green: 0.60, blue: 0.11), accent: white, symbol: "circle.grid.3x3.fill", foam: 0.11, bubbles: 5, ice: 0, band: false, symbolRotation: 0)
-        case "beer-ale": return .init(liquid: .init(red: 0.69, green: 0.34, blue: 0.08), accent: cream, symbol: "cloud.fill", foam: 0.16, bubbles: 3, ice: 0, band: true, symbolRotation: 0)
-        case "wine-red": return .init(liquid: .init(red: 0.48, green: 0.08, blue: 0.16), accent: white, symbol: "scribble.variable", foam: 0, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "wine-white": return .init(liquid: .init(red: 0.88, green: 0.74, blue: 0.31), accent: white, symbol: "sparkles", foam: 0, bubbles: 0, ice: 0, band: false, symbolRotation: 0)
-        case "spirits-whisky": return .init(liquid: .init(red: 0.66, green: 0.39, blue: 0.12), accent: cream, symbol: "diamond.fill", foam: 0, bubbles: 0, ice: 2, band: false, symbolRotation: 0)
-        case "spirits-gin": return .init(liquid: .init(red: 0.73, green: 0.82, blue: 0.78), accent: white, symbol: "snowflake", foam: 0, bubbles: 0, ice: 3, band: true, symbolRotation: 8)
-        case "other-broth": return .init(liquid: .init(red: 0.62, green: 0.39, blue: 0.20), accent: cream, symbol: "wind", foam: 0.02, bubbles: 0, ice: 0, band: false, symbolRotation: -90)
-        case "other-custom": return .init(liquid: .init(red: 0.35, green: 0.54, blue: 0.49), accent: white, symbol: "drop.degreesign.fill", foam: 0, bubbles: 0, ice: 0, band: true, symbolRotation: 0)
-        default: return fallbackProfile
-        }
-    }
-
-    private var fallbackProfile: DrinkVisualProfile {
-        let colors: [Color] = [.init(red: 0.20, green: 0.70, blue: 0.78), .init(red: 0.40, green: 0.23, blue: 0.12), .init(red: 0.58, green: 0.48, blue: 0.20), .init(red: 0.38, green: 0.15, blue: 0.10), .init(red: 0.73, green: 0.78, blue: 0.18), .init(red: 0.96, green: 0.52, blue: 0.11), .init(red: 0.91, green: 0.89, blue: 0.78), .init(red: 0.72, green: 0.27, blue: 0.43), .init(red: 0.72, green: 0.52, blue: 0.20), .init(red: 0.86, green: 0.56, blue: 0.10), .init(red: 0.48, green: 0.08, blue: 0.16), .init(red: 0.68, green: 0.58, blue: 0.37), .init(red: 0.35, green: 0.54, blue: 0.49)]
-        let symbols = ["drop.fill", "line.3.horizontal", "leaf.fill", "bubble.left.fill", "bolt.fill", "sun.max.fill", "drop.circle.fill", "heart.fill", "sparkles", "circle.grid.3x3.fill", "scribble.variable", "diamond.fill", "drop.degreesign.fill"]
-        let index = DrinkCategory.allCases.firstIndex(of: category) ?? 12
-        let variation = (definitionID ?? artworkID).unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 7 }
-        return .init(liquid: colors[index], accent: .white.opacity(0.86), symbol: symbols[index], foam: category == .coffee || category == .beer ? 0.08 : 0, bubbles: variation % 3, ice: variation == 5 ? 2 : 0, band: variation.isMultiple(of: 2), symbolRotation: Double(variation * 7 - 21))
-    }
-
-    @ViewBuilder private var signatureDetail: some View {
-        GeometryReader { proxy in
-            let size = min(proxy.size.width, proxy.size.height)
-            let body = VesselBodyShape(style: artworkID)
-            ZStack {
-                if profile.band {
-                    Capsule()
-                        .fill(profile.accent.opacity(0.28))
-                        .frame(width: proxy.size.width * 0.42, height: max(3, proxy.size.height * 0.055))
-                        .offset(y: proxy.size.height * 0.15)
-                }
-                if profile.foam > 0 {
-                    Capsule()
-                        .fill(Color.white.opacity(0.78))
-                        .frame(width: proxy.size.width * 0.48, height: max(3, proxy.size.height * profile.foam))
-                        .offset(y: proxy.size.height * (0.47 - fillFraction))
-                }
-                ForEach(0..<profile.bubbles, id: \.self) { index in
-                    Circle()
-                        .stroke(profile.accent.opacity(0.70), lineWidth: max(0.8, size * 0.012))
-                        .frame(width: max(3, size * (0.045 + Double(index % 2) * 0.02)))
-                        .offset(x: proxy.size.width * (index.isMultiple(of: 2) ? -0.11 : 0.12),
-                                y: proxy.size.height * (0.25 - Double(index) * 0.095))
-                }
-                ForEach(0..<profile.ice, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: max(1, size * 0.018))
-                        .stroke(profile.accent.opacity(0.78), lineWidth: max(0.9, size * 0.012))
-                        .frame(width: size * 0.15, height: size * 0.12)
-                        .rotationEffect(.degrees(index.isMultiple(of: 2) ? 16 : -13))
-                        .offset(x: size * (index.isMultiple(of: 2) ? -0.12 : 0.12), y: size * (0.11 - Double(index) * 0.10))
-                }
-                Image(systemName: profile.symbol)
-                    .font(.system(size: max(8, size * 0.13), weight: .semibold))
-                    .foregroundStyle(profile.accent)
-                    .rotationEffect(.degrees(profile.symbolRotation))
-                    .offset(y: proxy.size.height * 0.12)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .mask(body)
-        }
-        .allowsHitTesting(false)
+        VesselArtwork(
+            style: artworkID,
+            liquidColor: visualSpec.liquid,
+            fillFraction: fillFraction,
+            showDetails: true,
+            surfaceBand: visualSpec.band,
+            showsParticles: showsParticles && visualSpec.isCarbonated
+        )
+        .padding(.horizontal, 4)
         .accessibilityHidden(true)
     }
 }

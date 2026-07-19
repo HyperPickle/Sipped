@@ -27,6 +27,11 @@ enum SippedTheme {
             ? UIColor(red: 0.18, green: 0.185, blue: 0.17, alpha: 1)
             : UIColor(red: 0.925, green: 0.91, blue: 0.865, alpha: 1)
     })
+    static let vessel = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 56 / 255, green: 56 / 255, blue: 59 / 255, alpha: 1)
+            : UIColor(red: 0.925, green: 0.91, blue: 0.865, alpha: 1)
+    })
     static let line = Color(UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor.white.withAlphaComponent(0.14)
