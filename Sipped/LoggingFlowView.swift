@@ -493,7 +493,6 @@ private struct ContainerStageView: View {
 
 private struct AmountStageView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query private var usages: [DrinkUsagePreference]
     let drink: DrinkDefinition
     let container: ContainerDefinition
@@ -502,17 +501,112 @@ private struct AmountStageView: View {
     let back: () -> Void
     let completion: () -> Void
 
-    @State private var amountML = 0.0
+    private var visualSpec: DrinkVisualSpec {
+        DrinkVisualSpec.profile(definitionID: drink.definitionID, category: drink.category)
+    }
+
+    var body: some View {
+        AmountFillView(
+            artworkID: container.artworkID,
+            visualSpec: visualSpec,
+            capacityML: container.capacityML,
+            initialAmountML: 0,
+            confirmationTitle: "Log \(drink.name)",
+            confirmationIdentifier: "logger.confirm",
+            backLabel: "Back to containers",
+            backIdentifier: "logger.back",
+            back: back,
+            confirm: logDrink
+        )
+    }
+
+    private func logDrink(amountML: Double) {
+        guard amountML > 0, capacity > 0 else { return }
+        let values = MeasureCalculator.contributions(
+            for: drink,
+            volumeML: amountML,
+            shots: drink.defaultShots,
+            addedSugarServes: 0,
+            standard: preferences.alcoholStandard,
+            abvOverride: drink.defaultABV
+        )
+        let log = DrinkLog(
+            loggedAt: environment.now,
+            orderIndex: environment.now.timeIntervalSinceReferenceDate,
+            sourceDefinitionID: drink.definitionID,
+            drinkName: drink.name,
+            category: drink.category,
+            artworkID: drink.artworkID,
+            containerID: container.containerID,
+            containerName: container.name,
+            containerCapacityML: container.capacityML,
+            consumedML: amountML,
+            caffeineMG: values.caffeineMG,
+            inherentSugarG: values.inherentSugarG,
+            addedSugarG: values.addedSugarG,
+            rawAlcoholML: values.rawAlcoholML,
+            alcoholByVolume: drink.defaultABV,
+            shots: drink.defaultShots,
+            milkType: drink.milkType,
+            calculationBasis: drink.basis
+        )
+        modelContext.insert(log)
+        if let usage = usages.first(where: { $0.definitionID == drink.definitionID }) {
+            usage.lastContainerID = container.containerID
+        } else {
+            modelContext.insert(DrinkUsagePreference(definitionID: drink.definitionID, lastContainerID: container.containerID))
+        }
+        try? modelContext.save()
+        completion()
+    }
+
+    private var capacity: Double { max(0, container.capacityML) }
+}
+
+struct AmountFillView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let artworkID: String
+    let visualSpec: DrinkVisualSpec
+    let capacityML: Double
+    let confirmationTitle: String
+    let confirmationIdentifier: String
+    let backLabel: String
+    let backIdentifier: String
+    let back: () -> Void
+    let confirm: (Double) -> Void
+
+    @State private var amountML: Double
     @State private var snapTrigger = 0
     @State private var lastSnap = -1
     @State private var editingExactAmount = false
     @FocusState private var exactAmountFocused: Bool
 
-    private var capacity: Double { max(0, container.capacityML) }
-    private var fraction: Double { FillAmountMath.fraction(forMillilitres: amountML, capacityML: capacity) }
-    private var visualSpec: DrinkVisualSpec {
-        DrinkVisualSpec.profile(definitionID: drink.definitionID, category: drink.category)
+    init(
+        artworkID: String,
+        visualSpec: DrinkVisualSpec,
+        capacityML: Double,
+        initialAmountML: Double,
+        confirmationTitle: String,
+        confirmationIdentifier: String,
+        backLabel: String,
+        backIdentifier: String,
+        back: @escaping () -> Void,
+        confirm: @escaping (Double) -> Void
+    ) {
+        self.artworkID = artworkID
+        self.visualSpec = visualSpec
+        self.capacityML = max(0, capacityML)
+        self.confirmationTitle = confirmationTitle
+        self.confirmationIdentifier = confirmationIdentifier
+        self.backLabel = backLabel
+        self.backIdentifier = backIdentifier
+        self.back = back
+        self.confirm = confirm
+        _amountML = State(initialValue: min(max(0, capacityML), max(0, initialAmountML)))
     }
+
+    private var capacity: Double { max(0, capacityML) }
+    private var fraction: Double { FillAmountMath.fraction(forMillilitres: amountML, capacityML: capacity) }
 
     var body: some View {
         GeometryReader { proxy in
@@ -531,15 +625,15 @@ private struct AmountStageView: View {
 
                 Spacer(minLength: 0)
 
-                Button(action: logDrink) {
-                    Text("Log \(drink.name)")
+                Button { confirm(amountML) } label: {
+                    Text(confirmationTitle)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
                 }
                 .buttonStyle(SippedPrimaryButtonStyle(tint: visualSpec.liquid, foreground: actionForeground))
                 .disabled(amountML <= 0)
                 .opacity(amountML <= 0 ? 0.42 : 1)
-                .accessibilityIdentifier("logger.confirm")
+                .accessibilityIdentifier(confirmationIdentifier)
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -554,7 +648,7 @@ private struct AmountStageView: View {
                     exactAmountFocused = false
                     editingExactAmount = false
                 }
-                    .accessibilityIdentifier("keyboard.done")
+                .accessibilityIdentifier("keyboard.done")
             }
         }
     }
@@ -567,15 +661,15 @@ private struct AmountStageView: View {
                 .background(SippedTheme.surface, in: Circle())
         }
         .buttonStyle(PressScaleButtonStyle())
-        .accessibilityLabel("Back to containers")
-        .accessibilityIdentifier("logger.back")
+        .accessibilityLabel(backLabel)
+        .accessibilityIdentifier(backIdentifier)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var fillVessel: some View {
         ZStack {
             VesselArtwork(
-                style: container.artworkID,
+                style: artworkID,
                 liquidColor: visualSpec.liquid,
                 fillFraction: fraction,
                 showDetails: true,
@@ -649,10 +743,7 @@ private struct AmountStageView: View {
     }
 
     private var exactAmountBinding: Binding<Double> {
-        Binding(
-            get: { amountML },
-            set: { setAmount($0) }
-        )
+        Binding(get: { amountML }, set: { setAmount($0) })
     }
 
     private var actionForeground: Color {
@@ -672,45 +763,5 @@ private struct AmountStageView: View {
         } else if snap < 0 {
             lastSnap = -1
         }
-    }
-
-    private func logDrink() {
-        guard amountML > 0, capacity > 0 else { return }
-        let values = MeasureCalculator.contributions(
-            for: drink,
-            volumeML: amountML,
-            shots: drink.defaultShots,
-            addedSugarServes: 0,
-            standard: preferences.alcoholStandard,
-            abvOverride: drink.defaultABV
-        )
-        let log = DrinkLog(
-            loggedAt: environment.now,
-            orderIndex: environment.now.timeIntervalSinceReferenceDate,
-            sourceDefinitionID: drink.definitionID,
-            drinkName: drink.name,
-            category: drink.category,
-            artworkID: drink.artworkID,
-            containerID: container.containerID,
-            containerName: container.name,
-            containerCapacityML: container.capacityML,
-            consumedML: amountML,
-            caffeineMG: values.caffeineMG,
-            inherentSugarG: values.inherentSugarG,
-            addedSugarG: values.addedSugarG,
-            rawAlcoholML: values.rawAlcoholML,
-            alcoholByVolume: drink.defaultABV,
-            shots: drink.defaultShots,
-            milkType: drink.milkType,
-            calculationBasis: drink.basis
-        )
-        modelContext.insert(log)
-        if let usage = usages.first(where: { $0.definitionID == drink.definitionID }) {
-            usage.lastContainerID = container.containerID
-        } else {
-            modelContext.insert(DrinkUsagePreference(definitionID: drink.definitionID, lastContainerID: container.containerID))
-        }
-        try? modelContext.save()
-        completion()
     }
 }
