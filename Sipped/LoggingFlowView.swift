@@ -237,39 +237,17 @@ private struct DrinkStageView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Button(action: close) {
-                Image(systemName: "xmark")
-                    .font(.body.weight(.semibold))
-                    .frame(width: 44, height: 44)
-                    .background(SippedTheme.surface, in: Circle())
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("Close")
-            .accessibilityIdentifier("logger.close")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Choose a drink")
-                    .font(.largeTitle.bold())
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("What would you like to log?")
-                    .font(.subheadline)
-                    .foregroundStyle(SippedTheme.secondaryInk)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-
-            Button(action: createDrink) {
-                Image(systemName: "plus").frame(width: 44, height: 44)
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("Create custom drink")
-            .accessibilityIdentifier("logger.newDrink")
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 18)
+        LoggerHeader(
+            title: "Choose a drink",
+            subtitle: "What would you like to log?",
+            leadingSymbol: "xmark",
+            leadingLabel: "Close",
+            leadingIdentifier: "logger.close",
+            leadingAction: close,
+            trailingLabel: "Create custom drink",
+            trailingIdentifier: "logger.newDrink",
+            trailingAction: createDrink
+        )
     }
 
     private func filterButton(
@@ -370,6 +348,10 @@ private struct ContainerStageView: View {
         }
     }
 
+    private var visualSpec: DrinkVisualSpec {
+        DrinkVisualSpec.profile(definitionID: drink.definitionID, category: drink.category)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -409,7 +391,9 @@ private struct ContainerStageView: View {
                         containers: filtered,
                         action: select,
                         selectedID: selectedID,
-                        liquidColor: SippedTheme.containerPreviewLiquid,
+                        liquidColor: visualSpec.liquid,
+                        surfaceBand: visualSpec.band,
+                        tint: drink.category.tint,
                         units: units
                     )
                     .padding(.horizontal, 20)
@@ -421,45 +405,28 @@ private struct ContainerStageView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Button(action: back) {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.semibold))
-                    .frame(width: 44, height: 44)
-                    .background(SippedTheme.surface, in: Circle())
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("Back to drinks")
-            .accessibilityIdentifier("logger.back")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Choose a container")
-                    .font(.largeTitle.bold())
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("What are you drinking \(drink.name) from?")
-                    .font(.subheadline)
-                    .foregroundStyle(SippedTheme.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-
-            Button(action: createContainer) {
-                Image(systemName: "plus").frame(width: 44, height: 44)
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("New container")
-            .accessibilityIdentifier("logger.newContainer")
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 18)
+        LoggerHeader(
+            title: "Choose a container",
+            subtitle: "What are you drinking \(drink.name) from?",
+            leadingSymbol: "chevron.left",
+            leadingLabel: "Back to drinks",
+            leadingIdentifier: "logger.back",
+            leadingAction: back,
+            trailingLabel: "New container",
+            trailingIdentifier: "logger.newContainer",
+            trailingAction: createContainer
+        )
     }
 
     private var emptyState: some View {
         VStack(spacing: 14) {
-            VesselArtwork(style: drink.category.defaultArtwork, liquidColor: SippedTheme.containerPreviewLiquid, fillFraction: 0.55, showDetails: false)
+            VesselArtwork(
+                style: drink.category.defaultArtwork,
+                liquidColor: visualSpec.liquid,
+                fillFraction: 0.55,
+                showDetails: true,
+                surfaceBand: visualSpec.band
+            )
                 .frame(width: 72, height: 110)
             Text(filter == .compatible ? "No compatible containers" : "No containers here yet")
                 .font(.title3.bold())
@@ -488,6 +455,77 @@ private struct ContainerStageView: View {
         case .saved: "person.crop.circle"
         case .all: "square.grid.2x2"
         }
+    }
+}
+
+private struct LoggerHeader: View {
+    let title: String
+    let subtitle: String
+    let leadingSymbol: String
+    let leadingLabel: String
+    let leadingIdentifier: String
+    let leadingAction: () -> Void
+    let trailingLabel: String
+    let trailingIdentifier: String
+    let trailingAction: () -> Void
+
+    var body: some View {
+        VStack(spacing: 5) {
+            ZStack {
+                Text(title)
+                    .font(.title.bold())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .allowsTightening(true)
+                    .padding(.horizontal, 54)
+                    .frame(maxWidth: .infinity)
+
+                HStack {
+                    headerButton(
+                        symbol: leadingSymbol,
+                        label: leadingLabel,
+                        identifier: leadingIdentifier,
+                        action: leadingAction,
+                        showsBackground: true
+                    )
+                    Spacer(minLength: 0)
+                    headerButton(
+                        symbol: "plus",
+                        label: trailingLabel,
+                        identifier: trailingIdentifier,
+                        action: trailingAction,
+                        showsBackground: false
+                    )
+                }
+            }
+
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(SippedTheme.secondaryInk)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 18)
+    }
+
+    private func headerButton(
+        symbol: String,
+        label: String,
+        identifier: String,
+        action: @escaping () -> Void,
+        showsBackground: Bool
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 44)
+                .background(showsBackground ? SippedTheme.surface : .clear, in: Circle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
     }
 }
 

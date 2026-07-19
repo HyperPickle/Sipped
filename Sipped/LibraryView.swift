@@ -198,12 +198,12 @@ struct DrinkCardGrid: View {
                         DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID)
                             .frame(height: accessibilityLayout ? 150 : 116)
                             .padding(.top, 5)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(drink.name).font(.headline).multilineTextAlignment(.leading).lineLimit(2, reservesSpace: true)
+                        VStack(spacing: 4) {
+                            Text(drink.name).font(.headline).multilineTextAlignment(.center).lineLimit(2, reservesSpace: true)
                             Text(drink.category.name)
                                 .font(.caption2.weight(.semibold)).foregroundStyle(drink.category.tint).lineLimit(1)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: accessibilityLayout ? 410 : 208)
@@ -225,6 +225,8 @@ struct ContainerCardGrid: View {
     let action: (ContainerDefinition) -> Void
     var selectedID: String? = nil
     var liquidColor: Color = SippedTheme.containerPreviewLiquid
+    var surfaceBand: SurfaceBandSpec? = nil
+    var tint: Color? = nil
     var units: DisplayUnits = .metric
     private var accessibilityLayout: Bool { dynamicTypeSize >= .accessibility1 }
     private var columns: [GridItem] {
@@ -238,24 +240,30 @@ struct ContainerCardGrid: View {
             ForEach(containers) { container in
                 Button { action(container) } label: {
                     VStack(spacing: 10) {
-                        VesselArtwork(style: container.artworkID, liquidColor: liquidColor, fillFraction: 0.68, showDetails: false)
+                        VesselArtwork(
+                            style: container.artworkID,
+                            liquidColor: liquidColor,
+                            fillFraction: 0.68,
+                            showDetails: surfaceBand != nil,
+                            surfaceBand: surfaceBand
+                        )
                             .frame(height: artworkHeight(for: container))
                             .frame(height: accessibilityLayout ? 156 : 122, alignment: .bottom)
                             .padding(.top, 4)
                         Text(container.name).font(.headline).multilineTextAlignment(.leading).lineLimit(2, reservesSpace: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(DisplayFormatter.volume(container.capacityML, units: units))
-                            .font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(liquidColor)
+                            .font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(cardTint)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: accessibilityLayout ? 410 : 210)
                     .padding(14)
-                    .background(selectedID == container.containerID ? liquidColor.opacity(0.15) : SippedTheme.surface,
+                    .background(selectedID == container.containerID ? cardTint.opacity(0.15) : SippedTheme.surface,
                                 in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay {
                         if selectedID == container.containerID {
-                            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(liquidColor, lineWidth: 2)
+                            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(cardTint, lineWidth: 2)
                         }
                     }
                 }
@@ -265,6 +273,8 @@ struct ContainerCardGrid: View {
             }
         }
     }
+
+    private var cardTint: Color { tint ?? liquidColor }
 
     private func artworkHeight(for container: ContainerDefinition) -> CGFloat {
         let normalized = sqrt(min(max(container.capacityML, 0), 1_180) / 1_180)

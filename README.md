@@ -1,0 +1,82 @@
+<p align="center"><a href="https://github.com/HyperPickle/Sipped"><img alt="Codex Build Week Hackathon" src="https://img.shields.io/badge/Codex%20Build%20Week-Hackathon-111111?style=for-the-badge"></a>&nbsp;<img alt="iOS 17 or later" src="https://img.shields.io/badge/iOS-17%2B-000000?style=for-the-badge&logo=apple&logoColor=white">&nbsp;<img alt="Swift 5" src="https://img.shields.io/badge/Swift-5-F05138?style=for-the-badge&logo=swift&logoColor=white">&nbsp;<img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0D96F6?style=for-the-badge"></p>
+
+<h1 align="center">Sipped</h1>
+
+<p align="center"><strong>A private drink diary that records what you had, without judging what you chose.</strong></p>
+
+<p align="center">Created for the Codex Build Week hackathon.</p>
+
+Sipped is an iPhone app for keeping a clear record of what you drink. Pick a drink, choose the container it came in, drag the liquid to the amount you consumed, and save it. Sipped keeps track of fluid, caffeine, sugar, and alcohol in one place.
+
+There are no goals, scores, streaks, coaching messages, or guesses about what is happening inside your body. It is simply a useful record that stays on your phone.
+
+## How it works
+
+1. Choose from a visual library of familiar drinks, recent drinks, or your own saved drinks.
+2. Pick a suitable container, with capacities and shapes that make sense for that drink.
+3. Drag upward on the vessel to set the amount. Every new entry starts empty, and exact number entry is available too.
+4. Confirm once to add the drink to Today.
+
+Sipped remembers the container you last used for a saved drink, but it never carries the previous amount into a new entry.
+
+## What you can see
+
+- A Today view with totals for fluid, caffeine, sugar, and alcohol
+- A graph showing how the selected measure changed with each drink
+- A seven-day history with daily records
+- Searchable drink and container libraries with original vessel artwork
+- Custom drinks and containers for the things you use regularly
+- Clear calculation notes on each entry, including raw alcohol inputs where relevant
+- Regional standard drink calculations for Australia, the United States, the United Kingdom, and Canada
+
+Fluid means the literal amount consumed. Caffeine is shown as cumulative intake. Sugar includes inherent and added sugar. Alcohol is derived from the recorded volume and ABV using the selected regional standard.
+
+## Built for Codex Build Week
+
+Sipped was created for the Codex Build Week hackathon as a complete native iOS project. The work began with a written product model and a visual reference contract, then moved through implementation, catalogue design, interaction testing, accessibility checks, and acceptance tests.
+
+The result is intentionally focused. It explores whether logging a drink can be fast, visual, transparent, and private without turning the record into a score.
+
+## For developers
+
+### Stack
+
+- Swift 5
+- SwiftUI for the interface
+- SwiftData for local persistence
+- Swift Charts for Today and History
+- XCTest and XCUITest for unit and acceptance coverage
+- iOS 17 minimum deployment target
+- No third-party runtime dependencies
+
+### Architecture
+
+Sipped is a local snapshot ledger. Reusable drink and container definitions can change, while each `DrinkLog` keeps the values needed to preserve its own history.
+
+The calculation layer is separate from presentation code. Tests can inject a fixed date, region, catalogue, and memory-only data store, which keeps results deterministic.
+
+The main persisted models are:
+
+- `DrinkDefinition`: reusable drink identity and calculation basis
+- `ContainerDefinition`: vessel name, capacity, artwork, and compatible categories
+- `DrinkUsagePreference`: the last container used for a saved drink
+- `DrinkLog`: a historical snapshot of the consumed amount and its contributions
+- `UserPreferences`: units, category order, appearance, selected measure, and alcohol standard
+
+The product vocabulary and invariants live in [`CONTEXT.md`](CONTEXT.md).
+
+### Repository guide
+
+| Path                                                 | Purpose                                                                       |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Sipped/Domain.swift`                                | SwiftData models, amount math, contribution calculations, and daily totals    |
+| `Sipped/Catalog.swift`                               | Built-in drink and container reference data, seeding, and catalogue migration |
+| `Sipped/LoggingFlowView.swift`                       | Drink, container, and amount stages of the logging flow                       |
+| `Sipped/TodayView.swift`                             | Current-day totals, chart, entries, delete, and undo                          |
+| `Sipped/HistoryView.swift`                           | Seven-day chart and day detail views                                          |
+| `Sipped/LibraryView.swift`                           | Drink, saved drink, and grouped container galleries                           |
+| `Sipped/VesselArtwork.swift`                         | Original vessel shapes, clipped liquid, surface bands, and particles          |
+| `Sipped/DesignSystem.swift`                          | Shared colours, controls, cards, formatters, and layouts                      |
+| `Sipped/AppEnvironment.swift`                        | Date, calendar, region, and deterministic test inputs                         |
+| `SippedTests/`                                       | Calculator, amount math, catalogue, compatibility, and migration tests        |
+| `SippedUITests/`                                     | Full product-flow and accessibility acceptance tests                          |

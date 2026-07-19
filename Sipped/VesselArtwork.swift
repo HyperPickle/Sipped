@@ -369,6 +369,7 @@ private struct FluidFillShape: Shape {
     let spec: VesselSpec
     var fraction: Double
     var slosh: Double
+    var slopeDegrees: Double = 0
 
     var animatableData: AnimatablePair<Double, Double> {
         get { AnimatablePair(fraction, slosh) }
@@ -384,20 +385,78 @@ private struct FluidFillShape: Shape {
         let floor = frame.minY + spec.liquidFloor * scale
         let baseline = bottom - (bottom - top) * fill
         let amplitude = min((bottom - top) * 0.018, 5) * slosh
+        let slopeDelta = tan(slopeDegrees * .pi / 180) * frame.width
+        func surfaceY(_ position: CGFloat) -> CGFloat {
+            baseline + (position - 0.5) * slopeDelta
+        }
         var path = Path()
-        path.move(to: CGPoint(x: frame.minX, y: baseline))
+        path.move(to: CGPoint(x: frame.minX, y: surfaceY(0)))
         path.addCurve(
-            to: CGPoint(x: frame.midX, y: baseline),
-            control1: CGPoint(x: frame.minX + frame.width * 0.16, y: baseline + amplitude),
-            control2: CGPoint(x: frame.minX + frame.width * 0.34, y: baseline + amplitude)
+            to: CGPoint(x: frame.midX, y: surfaceY(0.5)),
+            control1: CGPoint(x: frame.minX + frame.width * 0.16, y: surfaceY(0.16) + amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.34, y: surfaceY(0.34) + amplitude)
         )
         path.addCurve(
-            to: CGPoint(x: frame.maxX, y: baseline),
-            control1: CGPoint(x: frame.minX + frame.width * 0.66, y: baseline - amplitude),
-            control2: CGPoint(x: frame.minX + frame.width * 0.84, y: baseline - amplitude)
+            to: CGPoint(x: frame.maxX, y: surfaceY(1)),
+            control1: CGPoint(x: frame.minX + frame.width * 0.66, y: surfaceY(0.66) - amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.84, y: surfaceY(0.84) - amplitude)
         )
         path.addLine(to: CGPoint(x: frame.maxX, y: floor))
         path.addLine(to: CGPoint(x: frame.minX, y: floor))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct FluidSurfaceBandShape: Shape {
+    let spec: VesselSpec
+    let relativeHeight: CGFloat
+    var fraction: Double
+    var slosh: Double
+    var slopeDegrees: Double
+
+    var animatableData: AnimatablePair<Double, Double> {
+        get { AnimatablePair(fraction, slosh) }
+        set { fraction = newValue.first; slosh = newValue.second }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let frame = VesselCanvas.frame(in: rect.size)
+        let scale = VesselCanvas.scale(in: rect.size)
+        let fill = FillAmountMath.clampedFraction(fraction)
+        let top = frame.minY + spec.interiorTop * scale
+        let bottom = frame.minY + spec.interiorBottom * scale
+        let baseline = bottom - (bottom - top) * fill
+        let amplitude = min((bottom - top) * 0.018, 5) * slosh
+        let bandHeight = max(1.5, spec.referenceWidth * relativeHeight * scale)
+        let slopeDelta = tan(slopeDegrees * .pi / 180) * frame.width
+        func surfaceY(_ position: CGFloat) -> CGFloat {
+            baseline + (position - 0.5) * slopeDelta
+        }
+
+        var path = Path()
+        path.move(to: CGPoint(x: frame.minX, y: surfaceY(0)))
+        path.addCurve(
+            to: CGPoint(x: frame.midX, y: surfaceY(0.5)),
+            control1: CGPoint(x: frame.minX + frame.width * 0.16, y: surfaceY(0.16) + amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.34, y: surfaceY(0.34) + amplitude)
+        )
+        path.addCurve(
+            to: CGPoint(x: frame.maxX, y: surfaceY(1)),
+            control1: CGPoint(x: frame.minX + frame.width * 0.66, y: surfaceY(0.66) - amplitude),
+            control2: CGPoint(x: frame.minX + frame.width * 0.84, y: surfaceY(0.84) - amplitude)
+        )
+        path.addLine(to: CGPoint(x: frame.maxX, y: surfaceY(1) + bandHeight))
+        path.addCurve(
+            to: CGPoint(x: frame.midX, y: surfaceY(0.5) + bandHeight),
+            control1: CGPoint(x: frame.minX + frame.width * 0.84, y: surfaceY(0.84) - amplitude + bandHeight),
+            control2: CGPoint(x: frame.minX + frame.width * 0.66, y: surfaceY(0.66) - amplitude + bandHeight)
+        )
+        path.addCurve(
+            to: CGPoint(x: frame.minX, y: surfaceY(0) + bandHeight),
+            control1: CGPoint(x: frame.minX + frame.width * 0.34, y: surfaceY(0.34) + amplitude + bandHeight),
+            control2: CGPoint(x: frame.minX + frame.width * 0.16, y: surfaceY(0.16) + amplitude + bandHeight)
+        )
         path.closeSubpath()
         return path
     }
@@ -474,7 +533,6 @@ struct DrinkVisualSpec {
         case "wine-white": return profile(0xd9b45a)
         case "spirits-whisky": return profile(0xb98336)
         case "spirits-gin": return profile(0xcfe0da)
-        case "other-broth": return profile(0xc99a63)
         case "other-custom": return profile(0x7fa89f)
         default:
             switch category {
@@ -536,18 +594,45 @@ struct VesselArtwork: View {
                 }
 
                 if fraction > 0.001 {
-                    FluidFillShape(spec: spec, fraction: fraction, slosh: motionReduced ? 0 : slosh)
+                    FluidFillShape(
+                        spec: spec,
+                        fraction: fraction,
+                        slosh: motionReduced ? 0 : slosh,
+                        slopeDegrees: surfaceBand?.slopeDegrees ?? 0
+                    )
                         .fill(liquidColor)
                         .mask(bodyShape.fill(.white))
 
                     if showDetails, let surfaceBand {
-                        surfaceBandView(surfaceBand, spec: spec, fraction: fraction, size: proxy.size)
+                        FluidSurfaceBandShape(
+                            spec: spec,
+                            relativeHeight: surfaceBand.relativeHeight,
+                            fraction: fraction,
+                            slosh: motionReduced ? 0 : slosh,
+                            slopeDegrees: surfaceBand.slopeDegrees
+                        )
+                            .fill(surfaceBand.color)
+                            .mask(
+                                FluidFillShape(
+                                    spec: spec,
+                                    fraction: fraction,
+                                    slosh: motionReduced ? 0 : slosh,
+                                    slopeDegrees: surfaceBand.slopeDegrees
+                                ).fill(.white)
+                            )
                             .mask(bodyShape.fill(.white))
                     }
 
                     if showsParticles, !motionReduced {
                         BubbleLayer(spec: spec, fraction: fraction)
-                            .mask(FluidFillShape(spec: spec, fraction: fraction, slosh: 0).fill(.white))
+                            .mask(
+                                FluidFillShape(
+                                    spec: spec,
+                                    fraction: fraction,
+                                    slosh: slosh,
+                                    slopeDegrees: surfaceBand?.slopeDegrees ?? 0
+                                ).fill(.white)
+                            )
                             .mask(bodyShape.fill(.white))
                     }
                 }
@@ -557,7 +642,6 @@ struct VesselArtwork: View {
                     style: StrokeStyle(lineWidth: spec.wallWidth * scale, lineJoin: .round)
                 )
             }
-            .animation(motionReduced ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: fraction)
             .onAppear { previousFraction = fraction }
             .onChange(of: fraction) { oldValue, newValue in
                 guard !motionReduced, abs(newValue - oldValue) > 0.004 else {
@@ -573,21 +657,6 @@ struct VesselArtwork: View {
             }
             .accessibilityHidden(true)
         }
-    }
-
-    private func surfaceBandView(_ band: SurfaceBandSpec, spec: VesselSpec, fraction: Double, size: CGSize) -> some View {
-        let frame = VesselCanvas.frame(in: size)
-        let scale = VesselCanvas.scale(in: size)
-        let top = frame.minY + spec.interiorTop * scale
-        let bottom = frame.minY + spec.interiorBottom * scale
-        let liquidTop = bottom - (bottom - top) * fraction
-        let bandY = max(liquidTop, top + spec.wallWidth * scale / 2)
-        let height = max(1.5, spec.referenceWidth * band.relativeHeight * scale)
-        return Rectangle()
-            .fill(band.color)
-            .frame(width: frame.width, height: height)
-            .rotationEffect(.degrees(band.slopeDegrees + (motionReduced ? 0 : slosh * 1.4)))
-            .position(x: frame.midX, y: bandY + height / 2)
     }
 }
 

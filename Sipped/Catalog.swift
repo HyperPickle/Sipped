@@ -2,7 +2,8 @@ import Foundation
 import SwiftData
 
 enum CatalogSeeder {
-    static let currentSeedVersion = 2
+    static let currentSeedVersion = 3
+    static let retiredDrinkIDs: Set<String> = ["other-broth"]
 
     static let retiredContainerRemap: [String: String] = [
         "water-glass": "glass",
@@ -62,6 +63,10 @@ enum CatalogSeeder {
                       let successor = retiredContainerRemap[id] else { continue }
                 drink.defaultContainerID = successor
             }
+            for stored in storedDrinks where stored.isBuiltIn && retiredDrinkIDs.contains(stored.definitionID) {
+                context.delete(stored)
+            }
+            storedDrinks.removeAll { $0.isBuiltIn && retiredDrinkIDs.contains($0.definitionID) }
         }
 
         let desiredDrinks = builtInDrinks
@@ -127,7 +132,6 @@ enum CatalogSeeder {
         drink("wine-white", "White Wine", .wine, "wine", "wine-standard", 0, 0, 0.7, 12.5, "12.5% ABV and 0.7 g sugar per 100 mL generic dry white."),
         drink("spirits-whisky", "Whisky", .spirits, "lowball", "lowball-glass", 0, 0, 0, 40, "40% ABV generic spirit estimate."),
         drink("spirits-gin", "Gin", .spirits, "lowball", "lowball-glass", 0, 0, 0, 40, "40% ABV generic spirit estimate."),
-        drink("other-broth", "Broth", .other, "mug", "ceramic-mug", 0, 0, 0.5, 0, "Fluid and sugar estimated per 100 mL."),
         drink("other-custom", "Other Drink", .other, "glass", "glass", 0, 0, 0, 0, "Values start at zero and can be edited for this log.")
     ] }
 

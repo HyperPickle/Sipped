@@ -209,6 +209,8 @@ final class SippedAcceptanceTests: XCTestCase {
         launch(seedHistory: true)
         app.buttons["settings.open"].tap()
         tapWhenHittable(app.buttons["settings.deleteAll"])
+        XCTAssertTrue(app.staticTexts["Delete all Sipped data?"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'permanently deleted' AND label CONTAINS 'onboarding'" )).firstMatch.exists)
         tapLast(app.buttons.matching(identifier: "settings.confirmDeleteAll"))
         XCTAssertTrue(app.staticTexts["Every drink, clearly recorded"].waitForExistence(timeout: 4))
     }

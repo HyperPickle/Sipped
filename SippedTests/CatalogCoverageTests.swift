@@ -55,6 +55,11 @@ final class CatalogCoverageTests: XCTestCase {
         XCTAssertTrue(required.isSubset(of: coffeeNames))
     }
 
+    func testRetiredBrothIsNotPartOfTheBuiltInDrinkLibrary() {
+        XCTAssertFalse(CatalogSeeder.builtInDrinks.contains { $0.definitionID == "other-broth" })
+        XCTAssertTrue(CatalogSeeder.retiredDrinkIDs.contains("other-broth"))
+    }
+
     func testCatalogueUpgradeRemapsDefinitionsButPreservesImmutableLogSnapshots() throws {
         let schema = Schema([
             DrinkDefinition.self, ContainerDefinition.self, UserPreferences.self,
@@ -81,9 +86,15 @@ final class CatalogCoverageTests: XCTestCase {
             inherentSugarG: 0, addedSugarG: 0, rawAlcoholML: 0,
             alcoholByVolume: 0, shots: 0, milkType: "", calculationBasis: "Original snapshot"
         )
+        let retiredDrink = DrinkDefinition(
+            definitionID: "other-broth", name: "Broth", category: .other,
+            artworkID: "mug", basis: "Retired drink", isBuiltIn: true,
+            defaultContainerID: "ceramic-mug"
+        )
         context.insert(retired)
         context.insert(customDrink)
         context.insert(historicalLog)
+        context.insert(retiredDrink)
         try context.save()
 
         try CatalogSeeder.upgradeReferenceCatalog(context: context, fromVersion: 1)
@@ -92,6 +103,7 @@ final class CatalogCoverageTests: XCTestCase {
         XCTAssertEqual(customDrink.defaultContainerID, "glass")
         XCTAssertFalse(try context.fetch(FetchDescriptor<ContainerDefinition>()).contains { $0.containerID == "water-glass" })
         XCTAssertTrue(try context.fetch(FetchDescriptor<ContainerDefinition>()).contains { $0.containerID == "glass" })
+        XCTAssertFalse(try context.fetch(FetchDescriptor<DrinkDefinition>()).contains { $0.definitionID == "other-broth" })
 
         let savedLog = try XCTUnwrap(
             context.fetch(FetchDescriptor<DrinkLog>()).first { $0.logID == "immutable-history" }
