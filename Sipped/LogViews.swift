@@ -146,74 +146,57 @@ struct EditLogView: View {
     @Bindable var log: DrinkLog
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Beverage") {
-                    Picker("Definition", selection: Binding(get: { log.sourceDefinitionID ?? "custom" }, set: applyDrink)) {
-                        Text("Custom snapshot").tag("custom")
-                        ForEach(drinks) { Text($0.name).tag($0.definitionID) }
-                    }
-                    TextField("Name", text: $log.drinkName)
-                    Picker("Category", selection: Binding(get: { log.category }, set: { log.category = $0 })) {
-                        ForEach(DrinkCategory.allCases) { Text($0.name).tag($0) }
-                    }
-                }.sippedFormRows()
-                Section("Container and amount") {
-                    Picker("Container", selection: Binding(get: { log.containerID ?? "snapshot" }, set: applyContainer)) {
-                        Text(log.containerName).tag("snapshot")
-                        ForEach(containers.filter { $0.supports(log.category) }) { Text("\($0.name) (\(Int($0.capacityML)) mL)").tag($0.containerID) }
-                    }
-                    LabeledContent("Capacity (mL)") { numeric($log.containerCapacityML, id: "entry.capacity") }
-                    LabeledContent("Consumed (mL)") { numeric($log.consumedML, id: "entry.consumed") }
-                    Slider(value: $log.consumedML, in: 0...max(1, log.containerCapacityML), step: 1) {
-                        Text("Consumed amount")
-                    }
-                    .accessibilityValue("\(Int(log.consumedML)) millilitres")
-                    .accessibilityIdentifier("entry.amountSlider")
-                }.sippedFormRows()
-                Section("Contributions") {
-                    LabeledContent("Caffeine (mg)") { numeric($log.caffeineMG, id: "entry.caffeine") }
-                    LabeledContent("Inherent sugar (g)") { numeric($log.inherentSugarG, id: "entry.inherentSugar") }
-                    LabeledContent("Added sugar (g)") { numeric($log.addedSugarG, id: "entry.addedSugar") }
-                    LabeledContent("Alcohol by volume (%)") { numeric($log.alcoholByVolume, id: "entry.abv") }
-                }.sippedFormRows()
-            }
-            .sippedFormCanvas()
-            .navigationTitle("Edit Entry")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { modelContext.rollback(); dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save") { normalizeAndSave() }.accessibilityIdentifier("entry.save") }
-            }
+        AmountFillView(
+            artworkID: containerArtworkID,
+            visualSpec: visualSpec,
+            capacityML: log.containerCapacityML,
+            initialAmountML: log.consumedML,
+            confirmationTitle: "Save \(log.drinkName)",
+            confirmationIdentifier: "entry.save",
+            backLabel: "Cancel editing",
+            backIdentifier: "entry.cancel",
+            back: { dismiss() },
+            confirm: saveAmount
+        )
+    }
+
+    private var containerArtworkID: String {
+        containers.first(where: { $0.containerID == log.containerID })?.artworkID
+            ?? log.category.defaultArtwork
+    }
+
+    private var visualSpec: DrinkVisualSpec {
+        DrinkVisualSpec.profile(definitionID: log.sourceDefinitionID, category: log.category)
+    }
+
+    private func saveAmount(_ amountML: Double) {
+        let previousAmount = max(0, log.consumedML)
+        let clampedAmount = min(max(0, log.containerCapacityML), max(0, amountML))
+        log.consumedML = clampedAmount
+
+        if let sourceDefinitionID = log.sourceDefinitionID,
+           let drink = drinks.first(where: { $0.definitionID == sourceDefinitionID }) {
+            let values = MeasureCalculator.contributions(
+                for: drink,
+                volumeML: clampedAmount,
+                shots: max(1, log.shots),
+                addedSugarServes: Int((log.addedSugarG / 4).rounded()),
+                standard: .australia,
+                abvOverride: log.alcoholByVolume
+            )
+            log.caffeineMG = values.caffeineMG
+            log.inherentSugarG = values.inherentSugarG
+            log.rawAlcoholML = values.rawAlcoholML
+            log.calculationBasis = drink.basis
+        } else {
+            let ratio = previousAmount > 0 ? clampedAmount / previousAmount : 0
+            log.caffeineMG = max(0, log.caffeineMG * ratio)
+            log.inherentSugarG = max(0, log.inherentSugarG * ratio)
+            log.rawAlcoholML = clampedAmount * max(0, min(100, log.alcoholByVolume)) / 100
         }
-    }
 
-    private func numeric(_ binding: Binding<Double>, id: String) -> some View {
-        TextField("0", value: binding, format: .number.precision(.fractionLength(0...2)))
-            .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
-            .accessibilityIdentifier(id)
-    }
-
-    private func applyDrink(_ id: String) {
-        guard let drink = drinks.first(where: { $0.definitionID == id }) else { log.sourceDefinitionID = nil; return }
-        log.sourceDefinitionID = drink.definitionID; log.drinkName = drink.name; log.category = drink.category
-        log.artworkID = drink.artworkID; log.calculationBasis = drink.basis
-        let values = MeasureCalculator.contributions(for: drink, volumeML: log.consumedML, shots: max(1, log.shots), addedSugarServes: Int(log.addedSugarG / 4), standard: .australia)
-        log.caffeineMG = values.caffeineMG; log.inherentSugarG = values.inherentSugarG
-        log.alcoholByVolume = drink.defaultABV; log.rawAlcoholML = values.rawAlcoholML
-    }
-
-    private func applyContainer(_ id: String) {
-        guard let container = containers.first(where: { $0.containerID == id }) else { return }
-        log.containerID = container.containerID; log.containerName = container.name; log.containerCapacityML = container.capacityML
-        log.consumedML = min(log.consumedML, container.capacityML)
-    }
-
-    private func normalizeAndSave() {
-        log.containerCapacityML = max(0, log.containerCapacityML); log.consumedML = max(0, min(log.consumedML, log.containerCapacityML))
-        log.caffeineMG = max(0, log.caffeineMG); log.inherentSugarG = max(0, log.inherentSugarG); log.addedSugarG = max(0, log.addedSugarG)
-        log.alcoholByVolume = max(0, min(100, log.alcoholByVolume)); log.rawAlcoholML = log.consumedML * log.alcoholByVolume / 100
-        try? modelContext.save(); dismiss()
+        try? modelContext.save()
+        dismiss()
     }
 }
 

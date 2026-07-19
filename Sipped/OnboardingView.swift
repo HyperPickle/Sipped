@@ -18,7 +18,7 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                ForEach(0..<4, id: \.self) { index in
+                ForEach(0..<3, id: \.self) { index in
                     Capsule().fill(index == page ? SippedTheme.chromeAccent : SippedTheme.line)
                         .frame(width: index == page ? 28 : 8, height: 6)
                 }
@@ -31,23 +31,13 @@ struct OnboardingView: View {
                 .id(page)
                 .transition(.opacity.combined(with: .offset(x: 14)))
 
-            HStack(spacing: 12) {
-                if page > 0 {
-                    Button { page -= 1 } label: {
-                        Image(systemName: "chevron.left").font(.headline).frame(width: 52, height: 52)
-                    }
-                    .buttonStyle(.plain)
-                    .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: SippedTheme.controlRadius, style: .continuous))
-                    .accessibilityLabel("Back")
-                }
-                Button(action: advance) {
-                    Label(page == 3 ? "Open Today" : "Continue", systemImage: page == 3 ? "arrow.right" : "chevron.right")
-                }
-                .buttonStyle(SippedPrimaryButtonStyle())
-                .disabled(page == 2 && selectedCategories.isEmpty)
-                .opacity(page == 2 && selectedCategories.isEmpty ? 0.45 : 1)
-                .accessibilityIdentifier(page == 3 ? "onboarding.finish" : "onboarding.continue")
+            Button(action: advance) {
+                Text(page == 2 ? "Open Today" : "Continue")
             }
+            .buttonStyle(SippedPrimaryButtonStyle())
+            .disabled(page == 2 && selectedCategories.isEmpty)
+            .opacity(page == 2 && selectedCategories.isEmpty ? 0.45 : 1)
+            .accessibilityIdentifier(page == 2 ? "onboarding.finish" : "onboarding.continue")
             .padding(20)
         }
         .background(SippedTheme.canvas.ignoresSafeArea())
@@ -61,8 +51,7 @@ struct OnboardingView: View {
         switch page {
         case 0: measuresPage
         case 1: unitsPage
-        case 2: categoriesPage
-        default: privacyPage
+        default: categoriesPage
         }
     }
 
@@ -138,35 +127,14 @@ struct OnboardingView: View {
         }
     }
 
-    private var privacyPage: some View {
-        OnboardingPage(title: "Private by default", subtitle: "Your library and drink history stay on this iPhone. Sipped needs no account and works offline.") {
-            VStack(spacing: 22) {
-                ZStack {
-                    Circle().fill(SippedTheme.chromeAccent.opacity(0.12)).frame(width: 160, height: 160)
-                    Image(systemName: "iphone.gen3.lock").font(.system(size: 62, weight: .light)).foregroundStyle(SippedTheme.chromeAccent)
-                }
-                VStack(spacing: 12) {
-                    Label("Local SwiftData storage", systemImage: "internaldrive")
-                    Label("No account or cloud history", systemImage: "person.crop.circle.badge.xmark")
-                    Label("No analytics or advertising", systemImage: "hand.raised")
-                }
-                .font(.subheadline.weight(.medium))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18)
-                .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            }
-        }
-    }
-
     private func advance() {
-        guard page < 3 else {
+        guard page < 2 else {
             preferences.units = units
             preferences.preferredCategories = DrinkCategory.allCases.filter(selectedCategories.contains)
             preferences.onboardingComplete = true
             try? modelContext.save()
             return
         }
-        if page == 2 && selectedCategories.isEmpty { return }
         if animationsEnabled { withAnimation(.easeOut(duration: 0.22)) { page += 1 } }
         else { page += 1 }
     }

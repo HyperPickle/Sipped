@@ -45,7 +45,6 @@ struct LoggingFlowView: View {
     @State private var showingCustomDrink = false
     @State private var showingCustomContainer = false
     @State private var drinkSearch = ""
-    @State private var drinkSearchPresented = false
     @State private var drinkFilter: DrinkLoggerFilter = .all
     @State private var containerFilter: ContainerLoggerFilter = .compatible
 
@@ -59,7 +58,6 @@ struct LoggingFlowView: View {
                         logs: logs,
                         preferences: preferences,
                         search: $drinkSearch,
-                        searchPresented: $drinkSearchPresented,
                         filter: $drinkFilter,
                         close: { dismiss() },
                         createDrink: { showingCustomDrink = true },
@@ -157,12 +155,10 @@ struct LoggingFlowView: View {
 }
 
 private struct DrinkStageView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let drinks: [DrinkDefinition]
     let logs: [DrinkLog]
     @Bindable var preferences: UserPreferences
     @Binding var search: String
-    @Binding var searchPresented: Bool
     @Binding var filter: DrinkLoggerFilter
     let close: () -> Void
     let createDrink: () -> Void
@@ -199,14 +195,11 @@ private struct DrinkStageView: View {
         VStack(spacing: 0) {
             header
 
-            if searchPresented {
-                SippedSearchField(prompt: "Search all drinks", text: $search)
-                    .focused($searchFocused)
-                    .accessibilityIdentifier("logger.search")
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            SippedSearchField(prompt: "Search all drinks", text: $search)
+                .focused($searchFocused)
+                .accessibilityIdentifier("logger.search")
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
@@ -241,10 +234,6 @@ private struct DrinkStageView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .background(SippedTheme.canvas)
-        .onChange(of: searchPresented) { _, presented in
-            if presented { searchFocused = true }
-            else { search = ""; searchFocused = false }
-        }
     }
 
     private var header: some View {
@@ -271,24 +260,12 @@ private struct DrinkStageView: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 4) {
-                Button {
-                    let animation: Animation? = reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.30, dampingFraction: 0.90)
-                    withAnimation(animation) { searchPresented.toggle() }
-                } label: {
-                    Image(systemName: searchPresented ? "xmark" : "magnifyingglass")
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel(searchPresented ? "Close search" : "Search drinks")
-                .accessibilityIdentifier("logger.searchToggle")
-
-                Button(action: createDrink) {
-                    Image(systemName: "plus").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Create custom drink")
-                .accessibilityIdentifier("logger.newDrink")
+            Button(action: createDrink) {
+                Image(systemName: "plus").frame(width: 44, height: 44)
             }
             .buttonStyle(PressScaleButtonStyle())
+            .accessibilityLabel("Create custom drink")
+            .accessibilityIdentifier("logger.newDrink")
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -363,10 +340,7 @@ private struct ContainerStageView: View {
     let back: () -> Void
     let createContainer: () -> Void
     let select: (ContainerDefinition) -> Void
-
-    private var liquidColor: Color {
-        DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID).liquidColor
-    }
+    @State private var search = ""
 
     private var validRememberedID: String? {
         guard let rememberedContainerID,
@@ -377,7 +351,11 @@ private struct ContainerStageView: View {
 
     private var filtered: [ContainerDefinition] {
         containers.filter { container in
-            switch filter {
+            let matchesSearch = search.isEmpty
+                || container.name.localizedCaseInsensitiveContains(search)
+                || String(Int(container.capacityML)).contains(search)
+            guard matchesSearch else { return false }
+            return switch filter {
             case .compatible: container.supports(drink.category)
             case .saved: !container.isBuiltIn && container.supports(drink.category)
             case .all: true
@@ -395,6 +373,11 @@ private struct ContainerStageView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+
+            SippedSearchField(prompt: "Search containers", text: $search)
+                .accessibilityIdentifier("logger.containerSearch")
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
@@ -426,7 +409,7 @@ private struct ContainerStageView: View {
                         containers: filtered,
                         action: select,
                         selectedID: selectedID,
-                        liquidColor: liquidColor,
+                        liquidColor: SippedTheme.containerPreviewLiquid,
                         units: units
                     )
                     .padding(.horizontal, 20)
@@ -476,7 +459,7 @@ private struct ContainerStageView: View {
 
     private var emptyState: some View {
         VStack(spacing: 14) {
-            VesselArtwork(style: drink.category.defaultArtwork, liquidColor: liquidColor, fillFraction: 0.55)
+            VesselArtwork(style: drink.category.defaultArtwork, liquidColor: SippedTheme.containerPreviewLiquid, fillFraction: 0.55, showDetails: false)
                 .frame(width: 72, height: 110)
             Text(filter == .compatible ? "No compatible containers" : "No containers here yet")
                 .font(.title3.bold())
@@ -510,7 +493,6 @@ private struct ContainerStageView: View {
 
 private struct AmountStageView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query private var usages: [DrinkUsagePreference]
     let drink: DrinkDefinition
     let container: ContainerDefinition
@@ -519,176 +501,26 @@ private struct AmountStageView: View {
     let back: () -> Void
     let completion: () -> Void
 
-    @State private var amountML = 0.0
-    @State private var snapTrigger = 0
-    @State private var lastSnap = -1
-    @FocusState private var exactAmountFocused: Bool
-
-    private var capacity: Double { max(0, container.capacityML) }
-    private var fraction: Double { capacity > 0 ? amountML / capacity : 0 }
-    private var liquidColor: Color {
-        DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID).liquidColor
+    private var visualSpec: DrinkVisualSpec {
+        DrinkVisualSpec.profile(definitionID: drink.definitionID, category: drink.category)
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
-            VStack(spacing: compact ? 8 : 12) {
-                header
-
-                Spacer(minLength: 4)
-
-                fillVessel
-                    .frame(
-                        width: min(proxy.size.width * 0.62, compact ? 210 : 280),
-                        height: min(proxy.size.height * (compact ? 0.32 : 0.43), compact ? 220 : 330)
-                    )
-                    .frame(maxWidth: .infinity)
-
-                Spacer(minLength: 2)
-
-                amountValue(compact: compact)
-
-                Spacer(minLength: 2)
-
-                Button(action: logDrink) {
-                    Text("Log \(drink.name)")
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                }
-                .buttonStyle(SippedPrimaryButtonStyle(tint: drink.category.tint, foreground: actionForeground))
-                .disabled(amountML <= 0)
-                .opacity(amountML <= 0 ? 0.42 : 1)
-                .accessibilityIdentifier("logger.confirm")
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-        }
-        .background(SippedTheme.canvas)
-        .sensoryFeedback(.selection, trigger: snapTrigger)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { exactAmountFocused = false }
-                    .accessibilityIdentifier("keyboard.done")
-            }
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Button(action: back) {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.semibold))
-                    .frame(width: 44, height: 44)
-                    .background(SippedTheme.surface, in: Circle())
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("Back to containers")
-            .accessibilityIdentifier("logger.back")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Set the amount")
-                    .font(.largeTitle.bold())
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("\(drink.name) · \(container.name)")
-                    .font(.subheadline)
-                    .foregroundStyle(SippedTheme.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var fillVessel: some View {
-        ZStack {
-            VesselArtwork(
-                style: container.artworkID,
-                liquidColor: liquidColor,
-                fillFraction: fraction
-            )
-            GeometryReader { proxy in
-                Color.clear
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                setFraction(1 - value.location.y / proxy.size.height)
-                            }
-                    )
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Amount fill")
-        .accessibilityValue("\(DisplayFormatter.volume(amountML, units: preferences.units)), \(Int((fraction * 100).rounded())) percent")
-        .accessibilityHint("Swipe up or down to adjust the amount")
-        .accessibilityAdjustableAction { direction in
-            setFraction(fraction + (direction == .increment ? 0.05 : -0.05))
-        }
-        .accessibilityIdentifier("amount.fill")
-    }
-
-    private func amountValue(compact: Bool) -> some View {
-        VStack(spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                TextField("0", value: exactAmountBinding, format: .number.precision(.fractionLength(0...1)))
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .font(.system(size: compact ? 46 : 58, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .frame(minWidth: 96, maxWidth: 210)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .focused($exactAmountFocused)
-                    .accessibilityLabel("Exact amount")
-                    .accessibilityIdentifier("amount.exact")
-                Text(preferences.units == .metric ? "mL" : "fl oz")
-                    .font(.title2.bold())
-                    .foregroundStyle(SippedTheme.secondaryInk)
-            }
-            .contentTransition(.numericText())
-
-            Text("\(Int((fraction * 100).rounded()))%")
-                .font(.title3.weight(.semibold).monospacedDigit())
-                .foregroundStyle(SippedTheme.secondaryInk)
-                .accessibilityIdentifier("amount.percentage")
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private var exactAmountBinding: Binding<Double> {
-        Binding(
-            get: { preferences.units == .metric ? amountML : amountML / 29.5735 },
-            set: { input in
-                let metric = preferences.units == .metric ? input : input * 29.5735
-                amountML = max(0, min(capacity, metric))
-            }
+        AmountFillView(
+            artworkID: container.artworkID,
+            visualSpec: visualSpec,
+            capacityML: container.capacityML,
+            initialAmountML: 0,
+            confirmationTitle: "Log \(drink.name)",
+            confirmationIdentifier: "logger.confirm",
+            backLabel: "Back to containers",
+            backIdentifier: "logger.back",
+            back: back,
+            confirm: logDrink
         )
     }
 
-    private var actionForeground: Color {
-        switch drink.category {
-        case .water, .energyDrinks, .juice, .beer: .black.opacity(0.82)
-        default: .white
-        }
-    }
-
-    private func setFraction(_ rawFraction: Double) {
-        let clamped = max(0, min(1, rawFraction))
-        amountML = (capacity * clamped).rounded()
-        let current = capacity > 0 ? amountML / capacity : 0
-        let snap = [0.25, 0.50, 0.75, 1.0].firstIndex { abs(current - $0) < 0.018 } ?? -1
-        if snap >= 0 && snap != lastSnap {
-            lastSnap = snap
-            snapTrigger += 1
-        } else if snap < 0 {
-            lastSnap = -1
-        }
-    }
-
-    private func logDrink() {
+    private func logDrink(amountML: Double) {
         guard amountML > 0, capacity > 0 else { return }
         let values = MeasureCalculator.contributions(
             for: drink,
@@ -726,5 +558,210 @@ private struct AmountStageView: View {
         }
         try? modelContext.save()
         completion()
+    }
+
+    private var capacity: Double { max(0, container.capacityML) }
+}
+
+struct AmountFillView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let artworkID: String
+    let visualSpec: DrinkVisualSpec
+    let capacityML: Double
+    let confirmationTitle: String
+    let confirmationIdentifier: String
+    let backLabel: String
+    let backIdentifier: String
+    let back: () -> Void
+    let confirm: (Double) -> Void
+
+    @State private var amountML: Double
+    @State private var snapTrigger = 0
+    @State private var lastSnap = -1
+    @State private var editingExactAmount = false
+    @FocusState private var exactAmountFocused: Bool
+
+    init(
+        artworkID: String,
+        visualSpec: DrinkVisualSpec,
+        capacityML: Double,
+        initialAmountML: Double,
+        confirmationTitle: String,
+        confirmationIdentifier: String,
+        backLabel: String,
+        backIdentifier: String,
+        back: @escaping () -> Void,
+        confirm: @escaping (Double) -> Void
+    ) {
+        self.artworkID = artworkID
+        self.visualSpec = visualSpec
+        self.capacityML = max(0, capacityML)
+        self.confirmationTitle = confirmationTitle
+        self.confirmationIdentifier = confirmationIdentifier
+        self.backLabel = backLabel
+        self.backIdentifier = backIdentifier
+        self.back = back
+        self.confirm = confirm
+        _amountML = State(initialValue: min(max(0, capacityML), max(0, initialAmountML)))
+    }
+
+    private var capacity: Double { max(0, capacityML) }
+    private var fraction: Double { FillAmountMath.fraction(forMillilitres: amountML, capacityML: capacity) }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
+            VStack(spacing: compact ? 6 : 10) {
+                header
+
+                fillVessel
+                    .frame(
+                        width: min(proxy.size.width * 0.76, compact ? 250 : 310),
+                        height: min(proxy.size.height * (compact ? 0.46 : 0.56), compact ? 300 : 430)
+                    )
+                    .frame(maxWidth: .infinity)
+
+                amountValue(compact: compact)
+
+                Spacer(minLength: 0)
+
+                Button { confirm(amountML) } label: {
+                    Text(confirmationTitle)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+                .buttonStyle(SippedPrimaryButtonStyle(tint: visualSpec.liquid, foreground: actionForeground))
+                .disabled(amountML <= 0)
+                .opacity(amountML <= 0 ? 0.42 : 1)
+                .accessibilityIdentifier(confirmationIdentifier)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+        }
+        .background(SippedTheme.canvas)
+        .sensoryFeedback(.selection, trigger: snapTrigger)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    exactAmountFocused = false
+                    editingExactAmount = false
+                }
+                .accessibilityIdentifier("keyboard.done")
+            }
+        }
+    }
+
+    private var header: some View {
+        Button(action: back) {
+            Image(systemName: "chevron.left")
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 44)
+                .background(SippedTheme.surface, in: Circle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityLabel(backLabel)
+        .accessibilityIdentifier(backIdentifier)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var fillVessel: some View {
+        ZStack {
+            VesselArtwork(
+                style: artworkID,
+                liquidColor: visualSpec.liquid,
+                fillFraction: fraction,
+                showDetails: true,
+                surfaceBand: visualSpec.band,
+                showsParticles: visualSpec.isCarbonated
+            )
+            GeometryReader { proxy in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                setFraction(1 - value.location.y / proxy.size.height)
+                            }
+                    )
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Amount fill")
+        .accessibilityValue("\(Int(amountML.rounded())) millilitres, \(Int((fraction * 100).rounded())) percent")
+        .accessibilityHint("Swipe up or down to adjust the amount")
+        .accessibilityAdjustableAction { direction in
+            setFraction(fraction + (direction == .increment ? 0.05 : -0.05))
+        }
+        .accessibilityIdentifier("amount.fill")
+    }
+
+    private func amountValue(compact: Bool) -> some View {
+        VStack(spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if editingExactAmount {
+                    TextField("0", value: exactAmountBinding, format: .number.precision(.fractionLength(0...1)))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: compact ? 46 : 58, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .frame(minWidth: 96, maxWidth: 210)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .focused($exactAmountFocused)
+                        .accessibilityLabel("Exact amount in millilitres")
+                        .accessibilityIdentifier("amount.input")
+                } else {
+                    Button {
+                        editingExactAmount = true
+                        Task { @MainActor in
+                            await Task.yield()
+                            exactAmountFocused = true
+                        }
+                    } label: {
+                        Text(Int(amountML.rounded()), format: .number)
+                            .font(.system(size: compact ? 46 : 58, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(Int(amountML.rounded())) millilitres. Edit exact amount")
+                    .accessibilityIdentifier("amount.exact")
+                }
+                Text("mL")
+                    .font(.title2.bold())
+                    .foregroundStyle(SippedTheme.secondaryInk)
+            }
+            .contentTransition(.numericText())
+
+            Text("\(Int((fraction * 100).rounded()))%")
+                .font(.title3.weight(.semibold).monospacedDigit())
+                .foregroundStyle(SippedTheme.secondaryInk)
+                .accessibilityIdentifier("amount.percentage")
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var exactAmountBinding: Binding<Double> {
+        Binding(get: { amountML }, set: { setAmount($0) })
+    }
+
+    private var actionForeground: Color {
+        visualSpec.prefersDarkText ? .black.opacity(0.82) : .white
+    }
+
+    private func setFraction(_ rawFraction: Double) {
+        setAmount(FillAmountMath.millilitres(for: rawFraction, capacityML: capacity).rounded())
+    }
+
+    private func setAmount(_ rawAmount: Double) {
+        amountML = min(capacity, max(0, rawAmount.isFinite ? rawAmount : 0))
+        let snap = FillAmountMath.snapIndex(for: fraction) ?? -1
+        if snap >= 0 && snap != lastSnap {
+            lastSnap = snap
+            snapTrigger += 1
+        } else if snap < 0 {
+            lastSnap = -1
+        }
     }
 }

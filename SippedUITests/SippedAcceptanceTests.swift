@@ -9,7 +9,7 @@ final class SippedAcceptanceTests: XCTestCase {
         app = XCUIApplication()
     }
 
-    func testOnboardingExplainsMeasuresUnitsCategoriesAndPrivacy() {
+    func testOnboardingExplainsMeasuresUnitsAndCategories() {
         launch(skipOnboarding: false)
         XCTAssertTrue(app.staticTexts["Every drink, clearly recorded"].waitForExistence(timeout: 5))
         for measure in ["Fluid", "Caffeine", "Sugar", "Alcohol"] { XCTAssertTrue(app.staticTexts[measure].exists) }
@@ -17,8 +17,6 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["units.imperial"].tap()
         app.buttons["onboarding.continue"].tap()
         app.buttons["onboarding.category.coffee"].tap()
-        app.buttons["onboarding.continue"].tap()
-        XCTAssertTrue(app.staticTexts["Private by default"].exists)
         app.buttons["onboarding.finish"].tap()
         XCTAssertTrue(app.staticTexts["Sipped"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["global.add"].exists)
@@ -34,8 +32,8 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["logger.back"].tap()
         XCTAssertTrue(app.staticTexts["Choose a drink"].waitForExistence(timeout: 3))
         app.buttons["drink.water-still"].tap()
-        selectContainer("water-glass")
-        XCTAssertTrue(app.staticTexts["Set the amount"].waitForExistence(timeout: 3))
+        selectContainer("glass")
+        XCTAssertTrue(element("amount.fill").waitForExistence(timeout: 3))
         app.buttons["logger.back"].tap()
         XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 3))
         XCTAssertFalse(element("amount.fill").exists)
@@ -45,7 +43,7 @@ final class SippedAcceptanceTests: XCTestCase {
         launch()
         openDrink("drink.water-still")
         XCTAssertFalse(element("amount.fill").exists, "A container selection must be required")
-        selectContainer("water-glass")
+        selectContainer("glass")
         XCTAssertTrue(app.otherElements["amount.fill"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.otherElements["amount.fill"].value.debugDescription.contains("0"))
         enterAmount("250")
@@ -116,7 +114,7 @@ final class SippedAcceptanceTests: XCTestCase {
 
     func testDragFillExactEntryClampingAndLogState() {
         launch(extraArguments: ["--open-drink=water-still"])
-        selectContainer("water-glass")
+        selectContainer("glass")
         let fill = element("amount.fill")
         XCTAssertTrue(fill.waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["logger.confirm"].isEnabled)
@@ -125,21 +123,21 @@ final class SippedAcceptanceTests: XCTestCase {
         start.press(forDuration: 0.1, thenDragTo: end)
         XCTAssertTrue(app.buttons["logger.confirm"].isEnabled)
         enterAmount("10000")
-        XCTAssertTrue(fill.value.debugDescription.contains("300 mL"))
+        XCTAssertTrue(fill.value.debugDescription.contains("250 millilitres"))
         XCTAssertTrue(fill.value.debugDescription.contains("100 percent"))
     }
 
     func testAmountStageAtAccessibilityTextDarkModeAndReduceMotion() {
+        XCUIDevice.shared.appearance = .dark
+        defer { XCUIDevice.shared.appearance = .light }
         launch(extraArguments: [
-            "-AppleInterfaceStyle", "Dark",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
             "-UIAccessibilityReduceMotionEnabled", "YES",
             "--open-drink=water-still"
         ])
-        selectContainer("water-glass")
-        XCTAssertTrue(app.staticTexts["Set the amount"].waitForExistence(timeout: 4))
+        selectContainer("glass")
         XCTAssertTrue(element("amount.fill").isHittable)
-        XCTAssertTrue(app.textFields["amount.exact"].isHittable)
+        XCTAssertTrue(app.buttons["amount.exact"].isHittable)
         XCTAssertTrue(app.buttons["logger.back"].isHittable)
         XCTAssertTrue(app.buttons["logger.confirm"].exists)
     }
@@ -158,9 +156,10 @@ final class SippedAcceptanceTests: XCTestCase {
         launch(seedHistory: true)
         tapWhenHittable(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Red Wine,'")).firstMatch)
         app.buttons["entry.edit"].tap()
-        let amountSlider = app.sliders["entry.amountSlider"]
-        tapWhenHittable(amountSlider)
-        amountSlider.adjust(toNormalizedSliderPosition: 0.8)
+        let fill = element("amount.fill")
+        XCTAssertTrue(fill.waitForExistence(timeout: 3))
+        XCTAssertTrue(fill.value.debugDescription.contains("150 millilitres"))
+        setFill(fill, to: 0.8)
         app.buttons["entry.save"].tap()
         let amountDetail = element("entry.detail.amount")
         XCTAssertTrue(amountDetail.waitForExistence(timeout: 3))
@@ -232,8 +231,8 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertTrue(app.buttons["drink.coffee-espresso"].waitForExistence(timeout: 2))
         app.buttons["Clear search"].tap()
         app.segmentedControls.firstMatch.buttons["Containers"].tap()
-        app.textFields["library.search"].tap(); app.textFields["library.search"].typeText("Water glass")
-        XCTAssertTrue(app.buttons["container.water-glass"].waitForExistence(timeout: 3))
+        app.textFields["library.search"].tap(); app.textFields["library.search"].typeText("Glass")
+        XCTAssertTrue(app.buttons["container.glass"].waitForExistence(timeout: 3))
     }
 
     func testCaptureCompleteRedesignInventory() throws {
@@ -250,9 +249,6 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["onboarding.continue"].tap()
         waitForText("Put your favourites first")
         capture("04-onboarding-categories")
-        app.buttons["onboarding.continue"].tap()
-        waitForText("Private by default")
-        capture("05-onboarding-privacy")
 
         launch()
         XCTAssertTrue(app.buttons["global.add"].waitForExistence(timeout: 5))
@@ -264,7 +260,7 @@ final class SippedAcceptanceTests: XCTestCase {
         waitForText("Choose a container")
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         capture("08-logger-water-container")
-        selectContainer("water-glass")
+        selectContainer("glass")
         XCTAssertTrue(element("amount.fill").waitForExistence(timeout: 4))
         capture("09-logger-water-zero")
         enterAmount("250")
@@ -293,7 +289,7 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["entry.edit"].tap()
         XCTAssertTrue(app.buttons["entry.save"].waitForExistence(timeout: 4))
         capture("17-entry-edit")
-        app.buttons["Cancel"].tap()
+        app.buttons["entry.cancel"].tap()
         XCTAssertTrue(app.buttons["Delete entry"].waitForExistence(timeout: 4))
         app.buttons["Delete entry"].tap()
         XCTAssertTrue(app.buttons.matching(identifier: "Delete").firstMatch.waitForExistence(timeout: 3))
@@ -370,8 +366,11 @@ final class SippedAcceptanceTests: XCTestCase {
 
         launch(extraArguments: ["--open-drink=wine-red"])
         selectContainer("wine-standard")
-        XCTAssertTrue(element("amount.fill").waitForExistence(timeout: 5))
-        enterAmount("150")
+        let wineFill = element("amount.fill")
+        XCTAssertTrue(wineFill.waitForExistence(timeout: 5))
+        setFill(wineFill, to: 1)
+        XCTAssertTrue(wineFill.value.debugDescription.contains("150 millilitres"))
+        XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "100%"))
         XCTAssertFalse(app.textFields["alcohol.abv"].exists)
         capture("34-logger-alcohol-filled")
 
@@ -401,10 +400,164 @@ final class SippedAcceptanceTests: XCTestCase {
         launch(extraArguments: ["--open-drink=water-still"])
         waitForText("Choose a container")
         stableCapture("08-logger-water-container", in: directory)
-        selectContainer("water-glass")
+        selectContainer("glass")
         XCTAssertTrue(element("amount.fill").waitForExistence(timeout: 5))
         enterAmount("250")
         stableCapture("10-logger-water-filled", in: directory)
+
+        launch(extraArguments: ["--open-drink=wine-red"])
+        selectContainer("wine-standard")
+        let wineFill = element("amount.fill")
+        XCTAssertTrue(wineFill.waitForExistence(timeout: 5))
+        setFill(wineFill, to: 1)
+        XCTAssertTrue(wineFill.value.debugDescription.contains("150 millilitres"))
+        XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "100%"))
+        stableCapture("34-logger-alcohol-filled", in: directory)
+
+        try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
+    }
+
+    func testCaptureInterfaceFixReview() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SippedInterfaceFixReview", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        launch(skipOnboarding: false)
+        app.buttons["onboarding.continue"].tap()
+        app.buttons["onboarding.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Put your favourites first"].waitForExistence(timeout: 3))
+        app.buttons["onboarding.category.coffee"].tap()
+        stableCapture("onboarding-categories-light", in: directory)
+
+        launch(seedHistory: true)
+        tapWhenHittable(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Red Wine,'")).firstMatch)
+        app.buttons["entry.edit"].tap()
+        XCTAssertTrue(element("amount.fill").waitForExistence(timeout: 3))
+        stableCapture("entry-edit-fill-light", in: directory)
+
+        launch(extraArguments: ["--open-drink=coffee-latte"])
+        selectContainer("ceramic-mug")
+        setFill(element("amount.fill"), to: 0.67)
+        stableCapture("coffee-mug-light", in: directory)
+
+        XCUIDevice.shared.appearance = .dark
+        launch(extraArguments: ["--open-drink=coffee-latte"])
+        selectContainer("ceramic-mug")
+        setFill(element("amount.fill"), to: 0.67)
+        stableCapture("coffee-mug-dark", in: directory)
+
+        try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
+    }
+
+    func testCaptureGoldenSixArtworkReview() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SippedGoldenArtworkReview", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let goldenSix: [(slug: String, drinkID: String, containerID: String)] = [
+            ("cappuccino-mug", "coffee-cappuccino", "ceramic-mug"),
+            ("water-bottle", "water-still", "water-bottle"),
+            ("cola-can", "soft-cola", "standard-can"),
+            ("lager-pint", "beer-lager", "beer-pint"),
+            ("red-wine-glass", "wine-red", "wine-standard"),
+            ("smoothie-shake-cup", "smoothie-fruit", "shake-cup")
+        ]
+
+        for appearance in ["light", "dark"] {
+            XCUIDevice.shared.appearance = appearance == "dark" ? .dark : .light
+
+            launch(seedHistory: true, extraArguments: ["--start-tab=library"])
+            XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+            captureGolden("\(appearance)-drink-library", in: directory)
+
+            launch(extraArguments: ["--open-drink=coffee-cappuccino"])
+            XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 5))
+            captureGolden("\(appearance)-container-picker", in: directory)
+
+            for subject in goldenSix {
+                launch(extraArguments: ["--open-drink=\(subject.drinkID)"])
+                selectContainer(subject.containerID)
+                let fill = element("amount.fill")
+                captureGolden("\(appearance)-\(subject.slug)-0", in: directory)
+                setFill(fill, to: 0.5)
+                XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "50%"))
+                captureGolden("\(appearance)-\(subject.slug)-50", in: directory)
+                setFill(fill, to: 1)
+                XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "100%"))
+                captureGolden("\(appearance)-\(subject.slug)-100", in: directory)
+            }
+        }
+
+        launch(extraArguments: [
+            "--force-reduce-motion",
+            "--open-drink=soft-cola"
+        ])
+        selectContainer("standard-can")
+        setFill(element("amount.fill"), to: 0.5)
+        XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "50%"))
+        captureGolden("reduce-motion-cola-can-50", in: directory)
+
+        try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
+    }
+
+    func testCaptureWallThicknessReview() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SippedWallThicknessReview", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let families: [(slug: String, drinkID: String, containerID: String)] = [
+            ("ceramic-mug", "coffee-latte", "ceramic-mug"),
+            ("water-bottle", "water-still", "water-bottle"),
+            ("sports-bottle", "water-still", "sports-bottle"),
+            ("soft-drink-bottle", "soft-cola", "soft-bottle"),
+            ("standard-can", "soft-cola", "standard-can"),
+            ("beer-stein", "beer-lager", "beer-stein"),
+            ("wine-glass", "wine-red", "wine-standard"),
+            ("champagne-flute", "wine-white", "champagne-flute"),
+            ("martini-glass", "spirits-gin", "martini-glass")
+        ]
+
+        for appearance in ["light", "dark"] {
+            XCUIDevice.shared.appearance = appearance == "dark" ? .dark : .light
+
+            launch(seedHistory: true, extraArguments: ["--start-tab=library"])
+            XCTAssertTrue(app.segmentedControls.firstMatch.waitForExistence(timeout: 5))
+            app.segmentedControls.firstMatch.buttons["Containers"].tap()
+            waitForText("Container library")
+            captureGolden("\(appearance)-container-cards", in: directory)
+
+            for family in families {
+                launch(extraArguments: ["--open-drink=\(family.drinkID)"])
+                selectContainer(family.containerID)
+                let fill = element("amount.fill")
+                setFill(fill, to: 0.65)
+                XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "65%"))
+                captureGolden("\(appearance)-\(family.slug)-65", in: directory)
+            }
+        }
+
+        XCUIDevice.shared.appearance = .light
+        launch(extraArguments: ["--open-drink=wine-red"])
+        selectContainer("wine-standard")
+        let wineFill = element("amount.fill")
+        captureGolden("light-wine-glass-0", in: directory)
+        setFill(wineFill, to: 1)
+        XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "100%"))
+        captureGolden("light-wine-glass-100", in: directory)
+
+        launch(extraArguments: ["--open-drink=water-still"])
+        selectContainer("water-bottle")
+        let bottleFill = element("amount.fill")
+        captureGolden("light-water-bottle-0", in: directory)
+        setFill(bottleFill, to: 1)
+        XCTAssertTrue(waitForLabel(element("amount.percentage"), containing: "100%"))
+        captureGolden("light-water-bottle-100", in: directory)
 
         try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
     }
@@ -434,7 +587,9 @@ final class SippedAcceptanceTests: XCTestCase {
     }
 
     private func enterAmount(_ value: String) {
-        let field = app.textFields["amount.exact"]
+        tapWhenHittable(app.buttons["amount.exact"])
+        let field = app.textFields["amount.input"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
         tapWhenHittable(field)
         field.press(forDuration: 0.7)
         if app.menuItems["Select All"].waitForExistence(timeout: 1) { app.menuItems["Select All"].tap() }
@@ -446,6 +601,12 @@ final class SippedAcceptanceTests: XCTestCase {
         let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
         _ = XCTWaiter.wait(for: [hidden], timeout: 3)
         RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+    }
+
+    private func setFill(_ fill: XCUIElement, to fraction: Double) {
+        let y = max(0.001, min(0.999, 1 - fraction))
+        fill.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: y)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
     }
 
     private func tapWhenHittable(_ element: XCUIElement) {
@@ -503,6 +664,15 @@ final class SippedAcceptanceTests: XCTestCase {
             try XCUIScreen.main.screenshot().pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"), options: .atomic)
         } catch {
             XCTFail("Could not write stable screenshot \(name): \(error)", file: file, line: line)
+        }
+    }
+
+    private func captureGolden(_ name: String, in directory: URL, file: StaticString = #filePath, line: UInt = #line) {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        do {
+            try XCUIScreen.main.screenshot().pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"), options: .atomic)
+        } catch {
+            XCTFail("Could not write golden artwork screenshot \(name): \(error)", file: file, line: line)
         }
     }
 
