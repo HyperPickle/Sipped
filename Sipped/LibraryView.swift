@@ -70,6 +70,11 @@ struct LibraryView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollIndicators(.hidden)
+            .contentMargins(
+                .bottom,
+                isSearchFocused ? 0 : SippedLayout.floatingChromeContentClearance,
+                for: .scrollContent
+            )
             .safeAreaInset(edge: .bottom) {
                 if searchFieldFocused {
                     HStack {
@@ -221,6 +226,7 @@ struct DrinkCardGrid: View {
                         DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID)
                             .frame(height: accessibilityLayout ? 190 : 132)
                             .frame(maxWidth: .infinity)
+                            .scaleEffect(drink.definitionID == "water-still" ? 0.9 : 1)
                         Text(drink.name)
                             .font(GalleryStyle.titleFont)
                             .multilineTextAlignment(.center)

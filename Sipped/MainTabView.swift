@@ -47,7 +47,6 @@ struct MainTabView: View {
             }
             .id(tab)
             .transition(reduceMotion ? .opacity : SippedMotion.screenTransition(direction: tabDirection))
-            .safeAreaPadding(.bottom, showsBottomChrome ? 84 : 0)
 
             if showsBottomChrome {
                 ZStack {
@@ -57,21 +56,24 @@ struct MainTabView: View {
                     .accessibilityHidden(true)
 
                     HStack(spacing: 10) {
-                        HStack(spacing: 2) {
-                            ForEach(AppTab.allCases) { item in
-                                tabControl(for: item)
-                            }
-                        }
-                        .padding(4)
-                        .glassEffect(.regular, in: .capsule)
-                        .overlay { Capsule().stroke(SippedTheme.line, lineWidth: 1) }
-                        .contentShape(Capsule())
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    selectTab(tab(at: value.location.x))
+                        GeometryReader { geometry in
+                            HStack(spacing: 2) {
+                                ForEach(AppTab.allCases) { item in
+                                    tabControl(for: item)
                                 }
-                        )
+                            }
+                            .padding(4)
+                            .glassEffect(.regular, in: .capsule)
+                            .overlay { Capsule().stroke(SippedTheme.line, lineWidth: 1) }
+                            .contentShape(Capsule())
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        selectTab(tab(at: value.location.x, in: geometry.size.width))
+                                    }
+                            )
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 64)
 
                         Button { showingLog = true } label: {
                             Image(systemName: "plus").font(.title2.bold()).foregroundStyle(SippedTheme.onChromeAccent)
@@ -84,6 +86,7 @@ struct MainTabView: View {
                         .accessibilityLabel("Log a drink")
                         .accessibilityIdentifier("global.add")
                     }
+                    .frame(height: 64)
                 }
                 .padding(.horizontal, 14)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -120,7 +123,7 @@ struct MainTabView: View {
                 }
             }
             .foregroundStyle(tab == item ? SippedTheme.onChromeAccent : SippedTheme.secondaryInk)
-            .frame(width: 64, height: 56)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .background(tab == item ? SippedTheme.chromeAccent : .clear, in: Capsule())
             .contentShape(Rectangle())
         }
@@ -128,13 +131,10 @@ struct MainTabView: View {
         .accessibilityIdentifier("tab.\(item.rawValue)")
     }
 
-    private func tab(at horizontalLocation: CGFloat) -> AppTab {
-        let tabWidth: CGFloat = 64
-        let tabSpacing: CGFloat = 2
-        let horizontalPadding: CGFloat = 4
-        let firstTabCenter = horizontalPadding + tabWidth / 2
-        let rawIndex = ((horizontalLocation - firstTabCenter) / (tabWidth + tabSpacing)).rounded()
-        let index = min(max(Int(rawIndex), 0), AppTab.allCases.count - 1)
+    private func tab(at horizontalLocation: CGFloat, in barWidth: CGFloat) -> AppTab {
+        guard barWidth > 0 else { return tab }
+        let rawIndex = Int(horizontalLocation / barWidth * CGFloat(AppTab.allCases.count))
+        let index = min(max(rawIndex, 0), AppTab.allCases.count - 1)
         return AppTab.allCases[index]
     }
 }

@@ -209,6 +209,24 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Drink library"].waitForExistence(timeout: 2))
     }
 
+    func testHistoryCanScrollItsLastDayAboveTheFloatingChrome() {
+        launch(seedHistory: true, extraArguments: ["--start-tab=history"])
+
+        let lastDay = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Friday 10 Jul'")).firstMatch
+        XCTAssertTrue(lastDay.waitForExistence(timeout: 3))
+        for _ in 0..<8 { app.swipeUp() }
+
+        let chromeTop = min(
+            app.buttons["tab.today"].frame.minY,
+            app.buttons["global.add"].frame.minY
+        )
+        XCTAssertLessThanOrEqual(
+            lastDay.frame.maxY,
+            chromeTop - 32,
+            "The final day should clear the floating chrome with visible breathing room."
+        )
+    }
+
     func testTodayEmptyStateHasOneCTAAndRevealsAnalyticsAfterFirstLog() {
         launch()
         XCTAssertEqual(app.buttons.matching(identifier: "today.empty.add").count, 1)

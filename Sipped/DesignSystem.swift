@@ -51,6 +51,10 @@ enum SippedTheme {
     static let controlRadius: CGFloat = 14
 }
 
+enum SippedLayout {
+    static let floatingChromeContentClearance: CGFloat = 112
+}
+
 enum GalleryStyle {
     static let titleFont: Font = .headline
     static let capacityFont: Font = .subheadline.weight(.semibold).monospacedDigit()
@@ -112,41 +116,86 @@ struct SippedBlurTransitionModifier: ViewModifier {
     }
 }
 
-private struct SippedNumericTransitionModifier<Value: Hashable>: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let value: Value
-    @State private var blurRadius: CGFloat = 0
-    @State private var pulseOpacity = 1.0
-    @State private var pulseScale: CGFloat = 1
+enum DigitMotionMath {
+    static func blurRadius(previousDigit: Int?, currentDigit: Int, elapsed: TimeInterval) -> CGFloat {
+        let directDistance = abs(currentDigit - (previousDigit ?? currentDigit - 1))
+        let digitDistance = min(directDistance, 10 - min(directDistance, 10))
+        guard digitDistance > 0 else { return 0 }
+        let rate = Double(digitDistance) / max(elapsed, 1 / 120)
+        let normalizedRate = min(1, max(0, (rate - 2) / 48))
+        return 0.042 + CGFloat(sqrt(normalizedRate)) * 0.238
+    }
+}
 
-    func body(content: Content) -> some View {
-        content
-            .monospacedDigit()
-            .contentTransition(reduceMotion ? .opacity : .numericText())
-            .blur(radius: blurRadius)
-            .opacity(pulseOpacity)
-            .scaleEffect(pulseScale)
-            .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.element, value: value)
-            .onChange(of: value) { _, _ in
-                pulseChange()
+private struct DigitMotionPulse {
+    var radius: CGFloat
+    var generation: Int
+}
+
+struct SippedAnimatedNumericText: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let text: String
+    @State private var pulses: [Int: DigitMotionPulse] = [:]
+    @State private var lastChangeTimes: [Int: TimeInterval] = [:]
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            ForEach(Array(text.enumerated()), id: \.offset) { index, character in
+                if character.wholeNumberValue != nil {
+                    Text(String(character))
+                        .contentTransition(reduceMotion ? .opacity : .numericText())
+                        .blur(radius: pulses[index]?.radius ?? 0)
+                        .animation(
+                            reduceMotion
+                                ? SippedMotion.reduced
+                                : .timingCurve(0.22, 1, 0.36, 1, duration: 0.22),
+                            value: character
+                        )
+                } else {
+                    Text(String(character))
+                }
             }
+        }
+        .monospacedDigit()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
+        .onChange(of: text) { oldText, newText in
+            animateChangedDigits(from: oldText, to: newText)
+        }
     }
 
-    private func pulseChange() {
+    private func animateChangedDigits(from oldText: String, to newText: String) {
         guard !reduceMotion else { return }
-        var immediate = Transaction()
-        immediate.disablesAnimations = true
-        withTransaction(immediate) {
-            blurRadius = 5
-            pulseOpacity = 0.78
-            pulseScale = 0.985
-        }
-        Task { @MainActor in
-            await Task.yield()
-            withAnimation(SippedMotion.element) {
-                blurRadius = 0
-                pulseOpacity = 1
-                pulseScale = 1
+        let oldCharacters = Array(oldText)
+        let newCharacters = Array(newText)
+        let now = Date.timeIntervalSinceReferenceDate
+
+        for (index, character) in newCharacters.enumerated() {
+            let oldCharacter = oldCharacters.indices.contains(index) ? oldCharacters[index] : nil
+            guard let currentDigit = character.wholeNumberValue,
+                  oldCharacter != character
+            else { continue }
+
+            let elapsed = now - (lastChangeTimes[index] ?? now - 0.18)
+            lastChangeTimes[index] = now
+            let targetRadius = DigitMotionMath.blurRadius(
+                previousDigit: oldCharacter?.wholeNumberValue,
+                currentDigit: currentDigit,
+                elapsed: elapsed
+            )
+            let generation = (pulses[index]?.generation ?? 0) + 1
+            let currentRadius = pulses[index]?.radius ?? 0
+            pulses[index] = DigitMotionPulse(radius: currentRadius, generation: generation)
+
+            withAnimation(.timingCurve(0.45, 0, 0.55, 1, duration: 0.07)) {
+                pulses[index] = DigitMotionPulse(radius: targetRadius, generation: generation)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(70))
+                guard pulses[index]?.generation == generation else { return }
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.20)) {
+                    pulses[index] = DigitMotionPulse(radius: 0, generation: generation)
+                }
             }
         }
     }
@@ -183,10 +232,6 @@ extension View {
     func sippedFormRows() -> some View {
         listRowBackground(SippedTheme.surface)
             .listRowSeparatorTint(SippedTheme.line)
-    }
-
-    func sippedNumericTransition<Value: Hashable>(value: Value) -> some View {
-        modifier(SippedNumericTransitionModifier(value: value))
     }
 
     func sippedBlurReplaceTransition() -> some View {

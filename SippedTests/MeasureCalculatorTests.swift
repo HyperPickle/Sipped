@@ -3,6 +3,24 @@ import XCTest
 
 @MainActor
 final class MeasureCalculatorTests: XCTestCase {
+    func testDigitBlurRespondsToPerDigitVelocityWithinTastefulBounds() {
+        let slow = DigitMotionMath.blurRadius(previousDigit: 1, currentDigit: 2, elapsed: 0.30)
+        let fast = DigitMotionMath.blurRadius(previousDigit: 1, currentDigit: 2, elapsed: 1 / 60)
+
+        XCTAssertGreaterThan(slow, 0)
+        XCTAssertGreaterThan(fast, slow)
+        XCTAssertLessThanOrEqual(fast, 0.28)
+    }
+
+    func testUnchangedDigitsStaySharpAndWraparoundUsesShortestDistance() {
+        let unchanged = DigitMotionMath.blurRadius(previousDigit: 4, currentDigit: 4, elapsed: 1 / 60)
+        let increment = DigitMotionMath.blurRadius(previousDigit: 0, currentDigit: 1, elapsed: 1 / 60)
+        let wraparound = DigitMotionMath.blurRadius(previousDigit: 9, currentDigit: 0, elapsed: 1 / 60)
+
+        XCTAssertEqual(unchanged, 0)
+        XCTAssertEqual(wraparound, increment, accuracy: 0.0001)
+    }
+
     func testTabMotionDirectionFollowsVisualOrder() {
         XCTAssertEqual(SippedMotion.direction(from: 0, to: 2), .forward)
         XCTAssertEqual(SippedMotion.direction(from: 2, to: 0), .backward)

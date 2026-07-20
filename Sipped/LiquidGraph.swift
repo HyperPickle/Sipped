@@ -109,7 +109,8 @@ struct ReservoirGraph: View {
             return previousLevel
         }
 
-        let amplitude = min(4, plot.height * 0.035)
+        // Keep the home graph's ambient motion subtle while preserving its organic shape.
+        let amplitude = min(4, plot.height * 0.035) * 0.65
         func surfaceY(atX x: CGFloat) -> CGFloat {
             let date = domainStart.addingTimeInterval(TimeInterval(x / plot.width) * total)
             let value = level(at: date) * Double(progress)

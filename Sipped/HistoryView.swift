@@ -39,6 +39,7 @@ struct HistoryView: View {
                 }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.bottom, SippedLayout.floatingChromeContentClearance, for: .scrollContent)
             .background(SippedTheme.canvas).navigationTitle("History")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showingSettings = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings").accessibilityIdentifier("settings.open") } }
             .sheet(isPresented: $showingSettings) { SettingsSheet(preferences: preferences) }
@@ -77,9 +78,14 @@ private struct HistoryDayRow: View {
                 ForEach(MeasureKind.allCases) { measure in
                     VStack(alignment: .leading, spacing: 3) {
                         Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
-                        Text(DisplayFormatter.value(day.totals.value(for: measure), measure: measure, units: preferences.units))
+                        SippedAnimatedNumericText(
+                            text: DisplayFormatter.value(
+                                day.totals.value(for: measure),
+                                measure: measure,
+                                units: preferences.units
+                            )
+                        )
                             .font(.caption2.bold())
-                            .sippedNumericTransition(value: day.totals.value(for: measure))
                             .lineLimit(1).minimumScaleFactor(0.55)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -103,9 +109,14 @@ private struct HistoryDayDetail: View {
                     ForEach(MeasureKind.allCases) { measure in
                         VStack(spacing: 5) {
                             Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
-                            Text(DisplayFormatter.value(day.totals.value(for: measure), measure: measure, units: preferences.units))
+                            SippedAnimatedNumericText(
+                                text: DisplayFormatter.value(
+                                    day.totals.value(for: measure),
+                                    measure: measure,
+                                    units: preferences.units
+                                )
+                            )
                                 .font(.caption2.bold())
-                                .sippedNumericTransition(value: day.totals.value(for: measure))
                                 .lineLimit(1).minimumScaleFactor(0.55)
                             Text(measure.name).font(.caption2).foregroundStyle(SippedTheme.secondaryInk)
                         }
@@ -118,6 +129,7 @@ private struct HistoryDayDetail: View {
                 ForEach(day.logs.reversed()) { log in Button { selectedLog = log } label: { LogEntryRow(log: log, preferences: preferences) }.buttonStyle(.plain) }
             }.padding(16)
         }
+        .contentMargins(.bottom, SippedLayout.floatingChromeContentClearance, for: .scrollContent)
         .scrollIndicators(.hidden)
         .background(SippedTheme.canvas).navigationTitle(day.date.formatted(.dateTime.weekday(.wide).day().month())).navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedLog) { EntryDetailView(log: $0, preferences: preferences, onDelete: delete) }

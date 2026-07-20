@@ -91,11 +91,15 @@ enum MeasureKind: String, CaseIterable, Identifiable {
     }
     var color: Color {
         switch self {
-        case .fluid: Color(red: 0.05, green: 0.46, blue: 0.57)
+        case .fluid: Color(red: 0.24, green: 0.79, blue: 0.97)
         case .caffeine: Color(red: 0.62, green: 0.32, blue: 0.12)
         case .sugar: Color(red: 0.67, green: 0.18, blue: 0.42)
         case .alcohol: Color(red: 0.36, green: 0.31, blue: 0.66)
         }
+    }
+
+    var selectedForegroundColor: Color {
+        self == .fluid ? .black.opacity(0.82) : .white
     }
 }
 

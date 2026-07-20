@@ -49,14 +49,13 @@ struct LogEntryRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 7).fill(log.category.tint.opacity(0.13)).frame(width: 56, height: 64)
-                DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID).frame(width: 34, height: 48)
+                DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID).frame(width: 42, height: 56)
             }
             VStack(alignment: .leading, spacing: 5) {
                 Text(log.drinkName).font(.headline).lineLimit(2)
                 Text("\(DisplayFormatter.volume(log.consumedML, units: preferences.units)) • \(log.containerName)")
                     .font(.subheadline)
                     .foregroundStyle(SippedTheme.secondaryInk)
-                    .sippedNumericTransition(value: log.consumedML)
                     .lineLimit(1)
                 HStack(spacing: 10) {
                     if log.caffeineMG > 0 { miniMetric(.caffeine, log.caffeineMG) }
@@ -93,9 +92,10 @@ struct EntryDetailView: View {
                     VStack(spacing: 8) {
                         DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID)
                             .frame(height: 148)
-                        Text(DisplayFormatter.volume(log.consumedML, units: preferences.units))
+                        SippedAnimatedNumericText(
+                            text: DisplayFormatter.volume(log.consumedML, units: preferences.units)
+                        )
                             .font(.title2.bold())
-                            .sippedNumericTransition(value: log.consumedML)
                         Text(log.containerName).font(.subheadline).foregroundStyle(SippedTheme.secondaryInk)
                     }
                     .padding(18)
@@ -144,7 +144,6 @@ struct EntryDetailView: View {
             Text(value)
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.trailing)
-                .sippedNumericTransition(value: value)
         }
             .accessibilityElement(children: .combine)
     }

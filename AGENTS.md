@@ -16,4 +16,4 @@ Read `CONTEXT.md` and relevant `docs/adr/` files before domain work. Preserve im
 
 Before UI work, inspect every image and instruction in `docs/design-references/REFERENCE.md`. The PRD controls behaviour; create original visuals and preserve Dynamic Type, VoiceOver, contrast, Reduce Motion, and 44-point targets.
 
-Treat `project.yml` as authoritative. Use four-space Swift formatting. Add focused XCTest coverage and XCUITest coverage for visible behaviour. Build with `xcodebuild -project Sipped.xcodeproj -scheme Sipped -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO`. Report changed files, checks, and risks.
+Treat `project.yml` as authoritative. Use four-space Swift formatting. Add focused XCTest coverage and XCUITest coverage for visible behaviour. Only run `xcodebuild` when the user explicitly asks for it; do not use it as routine verification. Prefer focused `swift test` checks where the project setup supports them. Report changed files, checks, and risks.

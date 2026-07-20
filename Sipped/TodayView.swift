@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query(sort: \DrinkLog.orderIndex) private var allLogs: [DrinkLog]
     @Bindable var preferences: UserPreferences
     let environment: AppEnvironment
@@ -33,10 +34,10 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("TODAY").font(.caption2.bold()).tracking(1.2).foregroundStyle(SippedTheme.chromeAccent)
-                        Text(environment.now.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.title2.weight(.bold))
-                    }
+                    Text("TODAY")
+                        .font(.caption.bold())
+                        .tracking(1.2)
+                        .foregroundStyle(SippedTheme.secondaryInk)
                     totalsGrid
                     if logs.isEmpty {
                         emptyState
@@ -51,6 +52,7 @@ struct TodayView: View {
                 }.padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.bottom, SippedLayout.floatingChromeContentClearance, for: .scrollContent)
             .background(SippedTheme.canvas)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedLog) { EntryDetailView(log: $0, preferences: preferences, onDelete: delete) }
@@ -59,24 +61,57 @@ struct TodayView: View {
     }
 
     private var totalsGrid: some View {
-        HStack(spacing: 0) {
-            ForEach(MeasureKind.allCases) { measure in
-                VStack(alignment: .leading, spacing: 6) {
-                    Image(systemName: measure.symbol).font(.caption.weight(.semibold)).foregroundStyle(measure.color)
-                    Text(DisplayFormatter.value(totals.value(for: measure), measure: measure, units: preferences.units))
-                        .font(.subheadline.bold())
-                        .sippedNumericTransition(value: totals.value(for: measure))
-                        .lineLimit(1).minimumScaleFactor(0.55)
-                    Text(measure.name).font(.caption2).foregroundStyle(SippedTheme.secondaryInk).lineLimit(1)
+        Group {
+            if dynamicTypeSize >= .accessibility1 {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 10
+                ) {
+                    ForEach(MeasureKind.allCases) { measure in
+                        totalMetric(for: measure)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("today.total.\(measure.rawValue)")
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(MeasureKind.allCases) { measure in
+                        totalMetric(for: measure)
+                    }
+                }
             }
         }
-        .padding(.vertical, 13)
-        .padding(.horizontal, 14)
-        .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func totalMetric(for measure: MeasureKind) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            SippedAnimatedNumericText(
+                text: totalCardValue(for: measure)
+            )
+                .font(.title3.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(measure.name.uppercased())
+                .font(.caption2.bold())
+                .tracking(0.8)
+                .foregroundStyle(measure.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(measure.name), \(DisplayFormatter.value(totals.value(for: measure), measure: measure, units: preferences.units))"
+        )
+        .accessibilityIdentifier("today.total.\(measure.rawValue)")
+    }
+
+    private func totalCardValue(for measure: MeasureKind) -> String {
+        let value = totals.value(for: measure)
+        if measure == .alcohol {
+            return value.formatted(.number.precision(.fractionLength(2)))
+        }
+        return DisplayFormatter.value(value, measure: measure, units: preferences.units)
     }
 
     private var graph: some View {
@@ -84,9 +119,14 @@ struct TodayView: View {
             HStack {
                 Label("\(preferences.selectedMeasure.name) by drink", systemImage: preferences.selectedMeasure.symbol).font(.headline).foregroundStyle(preferences.selectedMeasure.color)
                 Spacer()
-                Text(DisplayFormatter.value(totals.value(for: preferences.selectedMeasure), measure: preferences.selectedMeasure, units: preferences.units))
+                SippedAnimatedNumericText(
+                    text: DisplayFormatter.value(
+                        totals.value(for: preferences.selectedMeasure),
+                        measure: preferences.selectedMeasure,
+                        units: preferences.units
+                    )
+                )
                     .font(.subheadline.bold())
-                    .sippedNumericTransition(value: totals.value(for: preferences.selectedMeasure))
             }
             Group {
                 if graphPoints.isEmpty {
@@ -143,10 +183,13 @@ struct MeasureSelector: View {
                         Image(systemName: measure.symbol).font(.caption)
                         Text(measure.name).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.65)
                     }
-                        .foregroundStyle(selection == measure ? .white : SippedTheme.secondaryInk)
+                        .foregroundStyle(selection == measure ? measure.selectedForegroundColor : SippedTheme.secondaryInk)
                         .frame(maxWidth: .infinity, minHeight: 42)
                         .background(selection == measure ? measure.color : .clear, in: Capsule())
-                }.buttonStyle(.plain).accessibilityIdentifier("measure.\(measure.rawValue)")
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("measure.\(measure.rawValue)")
             }
         }
         .padding(4)

@@ -514,13 +514,13 @@ private struct LoggerHeader: View {
             }
         }
         .padding(6)
-        .background {
+        .glassEffect(
+            .regular.tint(.gray.opacity(0.24)),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(.gray.opacity(0.28))
-                }
+                .stroke(SippedTheme.line, lineWidth: 1)
                 .allowsHitTesting(false)
         }
         .padding(.horizontal, 20)
@@ -784,9 +784,8 @@ struct AmountFillView: View {
                             exactAmountFocused = true
                         }
                     } label: {
-                        Text(Int(amountML.rounded()), format: .number)
+                        SippedAnimatedNumericText(text: Int(amountML.rounded()).formatted())
                             .font(.system(size: compact ? 46 : 58, weight: .bold, design: .rounded))
-                            .sippedNumericTransition(value: Int(amountML.rounded()))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(Int(amountML.rounded())) millilitres. Edit exact amount")
@@ -797,10 +796,9 @@ struct AmountFillView: View {
                     .foregroundStyle(SippedTheme.secondaryInk)
             }
 
-            Text("\(Int((fraction * 100).rounded()))%")
+            SippedAnimatedNumericText(text: "\(Int((fraction * 100).rounded()))%")
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .foregroundStyle(SippedTheme.secondaryInk)
-                .sippedNumericTransition(value: Int((fraction * 100).rounded()))
                 .accessibilityIdentifier("amount.percentage")
         }
         .accessibilityElement(children: .contain)
