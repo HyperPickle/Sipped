@@ -18,8 +18,84 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["onboarding.continue"].tap()
         app.buttons["onboarding.category.coffee"].tap()
         app.buttons["onboarding.finish"].tap()
-        XCTAssertTrue(app.staticTexts["Sipped"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["TODAY"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["settings.open"].exists)
         XCTAssertTrue(app.buttons["global.add"].exists)
+    }
+
+    func testGlobalAddOpensLoggingFlow() {
+        launch()
+
+        let add = app.buttons["global.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 3))
+        tapWhenHittable(add)
+
+        XCTAssertTrue(app.staticTexts["Choose a drink"].waitForExistence(timeout: 3))
+    }
+
+    func testGlobalAddUsesCircularTouchTarget() {
+        launch()
+
+        let add = app.buttons["global.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 3))
+        XCTAssertEqual(add.frame.width, add.frame.height, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(add.frame.width, 44)
+    }
+
+    func testAnimatedTabTransitionsRemainInterruptible() {
+        launch(seedHistory: true)
+
+        let history = app.buttons["tab.history"]
+        let library = app.buttons["tab.library"]
+        XCTAssertTrue(history.waitForExistence(timeout: 3))
+
+        history.tap()
+        library.tap()
+        XCTAssertTrue(app.staticTexts["Drink library"].waitForExistence(timeout: 3))
+
+        app.buttons["tab.today"].tap()
+        XCTAssertTrue(app.staticTexts["TODAY"].waitForExistence(timeout: 3))
+    }
+
+    func testTabBarHasReliableTargetsAndDragSelectsDestination() {
+        launch(seedHistory: true)
+
+        let today = app.buttons["tab.today"]
+        let history = app.buttons["tab.history"]
+        let library = app.buttons["tab.library"]
+        XCTAssertTrue(today.waitForExistence(timeout: 3))
+        assertMinimumTouchTarget(today)
+        assertMinimumTouchTarget(history)
+        assertMinimumTouchTarget(library)
+
+        today.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: library.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertTrue(app.staticTexts["Drink library"].waitForExistence(timeout: 3))
+    }
+
+    func testLoggingHeaderActionsRespond() {
+        launch(extraArguments: ["--open-logger"])
+        tapWhenHittable(app.buttons["logger.close"])
+        XCTAssertTrue(app.buttons["global.add"].waitForExistence(timeout: 3))
+
+        launch(extraArguments: ["--open-logger"])
+        tapWhenHittable(app.buttons["logger.newDrink"])
+        XCTAssertTrue(app.navigationBars["New Drink"].waitForExistence(timeout: 3))
+
+        launch(extraArguments: ["--open-drink=water-still"])
+        XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 3))
+        tapWhenHittable(app.buttons["logger.back"])
+        XCTAssertTrue(app.staticTexts["Choose a drink"].waitForExistence(timeout: 3))
+    }
+
+    func testLoggingHeaderControlsExposeMinimumTouchTargets() {
+        launch(extraArguments: ["--open-logger"])
+        assertMinimumTouchTarget(app.buttons["logger.close"])
+        assertMinimumTouchTarget(app.buttons["logger.newDrink"])
+
+        launch(extraArguments: ["--open-drink=water-still"])
+        XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 3))
+        assertMinimumTouchTarget(app.buttons["logger.back"])
     }
 
     func testDrinkContainerAmountOrderingAndBackNavigation() {
@@ -37,6 +113,127 @@ final class SippedAcceptanceTests: XCTestCase {
         app.buttons["logger.back"].tap()
         XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 3))
         XCTAssertFalse(element("amount.fill").exists)
+    }
+
+    func testRepeatedLoggingTransitionsAndAmountChangesRemainResponsive() {
+        launch(extraArguments: ["--open-logger"])
+
+        for _ in 0..<2 {
+            app.buttons["drink.water-still"].tap()
+            XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 3))
+            app.buttons["logger.back"].tap()
+            XCTAssertTrue(app.staticTexts["Choose a drink"].waitForExistence(timeout: 3))
+        }
+
+        app.buttons["drink.water-still"].tap()
+        selectContainer("glass")
+        let fill = element("amount.fill")
+        XCTAssertTrue(fill.waitForExistence(timeout: 3))
+
+        for fraction in [0.25, 0.50, 0.75] {
+            setFill(fill, to: fraction)
+            XCTAssertTrue(waitForLabel(
+                element("amount.percentage"),
+                containing: "\(Int(fraction * 100))%"
+            ))
+        }
+    }
+
+    func testLoggingUsesOneCompactHeaderWithoutSubtitlesAndDismissesSearchKeyboard() {
+        launch()
+        app.buttons["global.add"].tap()
+
+        XCTAssertTrue(element("logger.header").waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Choose a drink"].exists)
+        XCTAssertFalse(app.staticTexts["What would you like to log?"].exists)
+        XCTAssertFalse(app.buttons["global.add"].exists)
+
+        let search = app.textFields["logger.search"]
+        tapWhenHittable(search)
+        search.typeText("Water")
+        XCTAssertTrue(app.buttons["keyboard.dismiss"].waitForExistence(timeout: 2))
+        app.buttons["keyboard.dismiss"].tap()
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1))
+        XCTAssertTrue((search.value as? String)?.contains("Water") == true)
+
+        app.buttons["drink.water-still"].tap()
+        XCTAssertTrue(element("logger.header").waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Choose a container"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'What are you drinking'")).firstMatch.exists)
+    }
+
+    func testLibrarySearchFocusHidesChromeAndGlassDismissRestoresItWithoutClearingQuery() {
+        launch(extraArguments: ["--start-tab=library"])
+        XCTAssertTrue(app.buttons["global.add"].waitForExistence(timeout: 3))
+
+        let search = app.textFields["library.search"]
+        tapWhenHittable(search)
+        search.typeText("Latte")
+        XCTAssertFalse(app.buttons["global.add"].exists)
+        XCTAssertTrue(app.buttons["keyboard.dismiss"].waitForExistence(timeout: 2))
+
+        app.buttons["keyboard.dismiss"].tap()
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1))
+        XCTAssertTrue((search.value as? String)?.contains("Latte") == true)
+        XCTAssertTrue(app.buttons["global.add"].waitForExistence(timeout: 2))
+    }
+
+    func testBottomChromeGapDoesNotTapThroughToHistoryRows() {
+        launch(seedHistory: true, extraArguments: ["--start-tab=history"])
+
+        let libraryTab = app.buttons["tab.library"]
+        let addButton = app.buttons["global.add"]
+        XCTAssertTrue(libraryTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(addButton.exists)
+
+        let gapPoint = CGPoint(
+            x: (libraryTab.frame.maxX + addButton.frame.minX) / 2,
+            y: addButton.frame.midY
+        )
+        let dayRows = app.buttons.matching(NSPredicate(format: "label CONTAINS 'drink'"))
+        let coveredRow = (0..<dayRows.count)
+            .map { dayRows.element(boundBy: $0) }
+            .first { row in
+                row.identifier != "global.add" && row.frame.contains(gapPoint)
+            }
+        XCTAssertNotNil(coveredRow, "Expected a history row beneath the bottom chrome gap")
+
+        app.coordinate(withNormalizedOffset: CGVector(
+            dx: gapPoint.x / app.frame.width,
+            dy: gapPoint.y / app.frame.height
+        )).tap()
+
+        XCTAssertTrue(app.navigationBars["History"].exists, "The tap passed through the bottom chrome")
+        XCTAssertTrue(libraryTab.isHittable, "The no-click zone covered an intended tab control")
+        libraryTab.tap()
+        XCTAssertTrue(app.staticTexts["Drink library"].waitForExistence(timeout: 2))
+    }
+
+    func testTodayEmptyStateHasOneCTAAndRevealsAnalyticsAfterFirstLog() {
+        launch()
+        XCTAssertEqual(app.buttons.matching(identifier: "today.empty.add").count, 1)
+        XCTAssertFalse(app.buttons["measure.fluid"].exists)
+        XCTAssertFalse(element("today.graph.fluid").exists)
+        XCTAssertFalse(app.staticTexts["Drinks"].exists)
+
+        app.buttons["today.empty.add"].tap()
+        app.buttons["drink.water-still"].tap()
+        selectContainer("glass")
+        enterAmount("250")
+        tapWhenHittable(app.buttons["logger.confirm"])
+
+        XCTAssertFalse(app.buttons["today.empty.add"].exists)
+        XCTAssertTrue(app.buttons["measure.fluid"].waitForExistence(timeout: 3))
+        XCTAssertTrue(element("today.graph.fluid").exists)
+        XCTAssertTrue(app.staticTexts["Drinks"].exists)
+    }
+
+    func testSettingsShowsRegionalStandardWithoutGlobeAndPreferredCategoriesDisclaimer() {
+        launch(extraArguments: ["--open-settings"])
+        XCTAssertTrue(element("settings.regionalStandard").waitForExistence(timeout: 3))
+        XCTAssertTrue(element("settings.alcoholStandard").exists)
+        XCTAssertTrue(app.staticTexts["This changes ordering only. Every category remains searchable."].exists)
+        XCTAssertFalse(app.images["globe.asia.australia.fill"].exists)
     }
 
     func testGenericDrinkStartsAtZeroAndLogsWithOneConfirmation() {
@@ -106,6 +303,8 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertFalse(element("amount.fill").exists)
         XCTAssertTrue(app.buttons["container.espresso-cup"].exists)
         XCTAssertTrue(app.buttons["container.ceramic-mug"].exists)
+        XCTAssertTrue(app.buttons["container.large-takeaway"].exists)
+        XCTAssertFalse(app.buttons["container.tall-glass"].exists)
         XCTAssertFalse(app.buttons["container.beer-pint"].exists)
         app.buttons["logger.newContainer"].tap()
         XCTAssertTrue(app.textFields["customContainer.name"].waitForExistence(timeout: 3))
@@ -177,12 +376,14 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertTrue(alcoholTotal.waitForExistence(timeout: 3))
         let australianLabel = alcoholTotal.label
         XCTAssertTrue(australianLabel.contains("std"))
+        app.buttons["tab.library"].tap()
         app.buttons["settings.open"].tap()
         let picker = element("settings.alcoholStandard")
         tapWhenHittable(picker)
         let us = app.buttons.matching(NSPredicate(format: "label CONTAINS 'United States'")).firstMatch
         if us.waitForExistence(timeout: 2) { us.tap() }
-        app.navigationBars.buttons.firstMatch.tap()
+        tapWhenHittable(app.buttons["Done"])
+        app.buttons["tab.today"].tap()
         let changed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label != %@", australianLabel),
             object: alcoholTotal
@@ -207,6 +408,7 @@ final class SippedAcceptanceTests: XCTestCase {
 
     func testDeleteAllDataReturnsToOnboardingAndClearsHistory() {
         launch(seedHistory: true)
+        app.buttons["tab.library"].tap()
         app.buttons["settings.open"].tap()
         tapWhenHittable(app.buttons["settings.deleteAll"])
         XCTAssertTrue(app.staticTexts["Delete all Sipped data?"].waitForExistence(timeout: 3))
@@ -232,9 +434,84 @@ final class SippedAcceptanceTests: XCTestCase {
         app.textFields["library.search"].tap(); app.textFields["library.search"].typeText("espresso")
         XCTAssertTrue(app.buttons["drink.coffee-espresso"].waitForExistence(timeout: 2))
         app.buttons["Clear search"].tap()
+        app.textFields["library.search"].tap(); app.textFields["library.search"].typeText("Other Drink")
+        XCTAssertFalse(app.buttons["drink.other-custom"].exists)
+        app.buttons["Clear search"].tap()
         app.segmentedControls.firstMatch.buttons["Containers"].tap()
         app.textFields["library.search"].tap(); app.textFields["library.search"].typeText("Glass")
         XCTAssertTrue(app.buttons["container.glass"].waitForExistence(timeout: 3))
+    }
+
+    func testCaptureIOS26ConsistencyUpdate() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SippedIOS26Consistency", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        launch()
+        XCTAssertTrue(app.buttons["today.empty.add"].waitForExistence(timeout: 5))
+        stableCapture("today-empty-light", in: directory)
+
+        launch(extraArguments: ["--start-tab=library"])
+        XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+        stableCapture("drink-grid-light", in: directory)
+        let otherSearch = app.textFields["library.search"]
+        tapWhenHittable(otherSearch)
+        otherSearch.typeText("Other Drink")
+        XCTAssertFalse(app.buttons["drink.other-custom"].exists)
+        stableCapture("other-drink-removed-light", in: directory)
+
+        launch(extraArguments: ["--open-drink=coffee-cappuccino"])
+        XCTAssertTrue(app.buttons["container.ceramic-mug"].waitForExistence(timeout: 5))
+        stableCapture("container-grid-light", in: directory)
+        selectContainer("ceramic-mug")
+        setFill(element("amount.fill"), to: 1)
+        stableCapture("foam-full-light", in: directory)
+
+        launch(extraArguments: ["--open-drink=coffee-espresso"])
+        selectContainer("espresso-cup")
+        setFill(element("amount.fill"), to: 1)
+        stableCapture("crema-full-light", in: directory)
+
+        launch(seedHistory: true, extraArguments: ["--open-settings"])
+        XCTAssertTrue(element("settings.alcoholStandard").waitForExistence(timeout: 5))
+        stableCapture("settings-light", in: directory)
+
+        launch(seedHistory: true)
+        XCTAssertTrue(element("today.graph.fluid").waitForExistence(timeout: 5))
+        stableCapture("today-logged-light", in: directory)
+
+        XCUIDevice.shared.appearance = .dark
+        launch(extraArguments: ["--start-tab=library"])
+        XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+        stableCapture("drink-grid-dark", in: directory)
+        app.segmentedControls.firstMatch.buttons["Containers"].tap()
+        XCTAssertTrue(app.buttons["container.glass"].waitForExistence(timeout: 5))
+        stableCapture("container-grid-dark", in: directory)
+
+        launch(extraArguments: ["--open-drink=coffee-cappuccino"])
+        selectContainer("ceramic-mug")
+        setFill(element("amount.fill"), to: 1)
+        stableCapture("foam-full-dark", in: directory)
+
+        launch(seedHistory: true, extraArguments: ["--open-settings"])
+        XCTAssertTrue(element("settings.alcoholStandard").waitForExistence(timeout: 5))
+        stableCapture("settings-dark", in: directory)
+
+        launch(seedHistory: true)
+        XCTAssertTrue(element("today.graph.fluid").waitForExistence(timeout: 5))
+        stableCapture("today-logged-dark", in: directory)
+
+        XCUIDevice.shared.appearance = .light
+        launch(extraArguments: [
+            "--start-tab=library",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        ])
+        XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+        stableCapture("drink-grid-accessibility", in: directory)
+
+        try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
     }
 
     func testCaptureCompleteRedesignInventory() throws {
@@ -617,6 +894,16 @@ final class SippedAcceptanceTests: XCTestCase {
             app.swipeUp()
         }
         XCTFail("Element was not hittable: \(element)")
+    }
+
+    private func assertMinimumTouchTarget(
+        _ element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(element.waitForExistence(timeout: 3), file: file, line: line)
+        XCTAssertGreaterThanOrEqual(element.frame.width, 44, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(element.frame.height, 44, file: file, line: line)
     }
 
     private func scrollUntilExists(_ element: XCUIElement) {

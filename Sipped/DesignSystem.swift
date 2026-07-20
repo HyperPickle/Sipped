@@ -51,6 +51,115 @@ enum SippedTheme {
     static let controlRadius: CGFloat = 14
 }
 
+enum GalleryStyle {
+    static let titleFont: Font = .headline
+    static let capacityFont: Font = .subheadline.weight(.semibold).monospacedDigit()
+}
+
+enum SippedMotionDirection: Equatable {
+    case forward
+    case backward
+}
+
+enum SippedMotion {
+    static let screen = Animation.spring(response: 0.42, dampingFraction: 0.88, blendDuration: 0.08)
+    static let element = Animation.spring(response: 0.30, dampingFraction: 0.86, blendDuration: 0.06)
+    static let reduced = Animation.easeOut(duration: 0.16)
+
+    static func direction(from oldIndex: Int, to newIndex: Int) -> SippedMotionDirection {
+        newIndex >= oldIndex ? .forward : .backward
+    }
+
+    static func screenTransition(direction: SippedMotionDirection) -> AnyTransition {
+        let enteringOffset: CGFloat = direction == .forward ? 24 : -24
+        let leavingOffset = -enteringOffset * 0.72
+        return .asymmetric(
+            insertion: .modifier(
+                active: SippedBlurTransitionModifier(opacity: 0, blur: 9, scale: 0.985, x: enteringOffset),
+                identity: SippedBlurTransitionModifier()
+            ),
+            removal: .modifier(
+                active: SippedBlurTransitionModifier(opacity: 0, blur: 6, scale: 0.992, x: leavingOffset),
+                identity: SippedBlurTransitionModifier()
+            )
+        )
+    }
+
+    static let blurReplace = AnyTransition.asymmetric(
+        insertion: .modifier(
+            active: SippedBlurTransitionModifier(opacity: 0, blur: 7, scale: 0.97),
+            identity: SippedBlurTransitionModifier()
+        ),
+        removal: .modifier(
+            active: SippedBlurTransitionModifier(opacity: 0, blur: 5, scale: 1.02),
+            identity: SippedBlurTransitionModifier()
+        )
+    )
+}
+
+struct SippedBlurTransitionModifier: ViewModifier {
+    var opacity: Double = 1
+    var blur: CGFloat = 0
+    var scale: CGFloat = 1
+    var x: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(opacity)
+            .blur(radius: blur)
+            .scaleEffect(scale)
+            .offset(x: x)
+    }
+}
+
+private struct SippedNumericTransitionModifier<Value: Hashable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let value: Value
+    @State private var blurRadius: CGFloat = 0
+    @State private var pulseOpacity = 1.0
+    @State private var pulseScale: CGFloat = 1
+
+    func body(content: Content) -> some View {
+        content
+            .monospacedDigit()
+            .contentTransition(reduceMotion ? .opacity : .numericText())
+            .blur(radius: blurRadius)
+            .opacity(pulseOpacity)
+            .scaleEffect(pulseScale)
+            .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.element, value: value)
+            .onChange(of: value) { _, _ in
+                pulseChange()
+            }
+    }
+
+    private func pulseChange() {
+        guard !reduceMotion else { return }
+        var immediate = Transaction()
+        immediate.disablesAnimations = true
+        withTransaction(immediate) {
+            blurRadius = 5
+            pulseOpacity = 0.78
+            pulseScale = 0.985
+        }
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(SippedMotion.element) {
+                blurRadius = 0
+                pulseOpacity = 1
+                pulseScale = 1
+            }
+        }
+    }
+}
+
+private struct SippedBlurReplaceTransitionModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.transition(reduceMotion ? .opacity : SippedMotion.blurReplace)
+    }
+}
+
 struct SippedCardModifier: ViewModifier {
     var padding: CGFloat = 16
     func body(content: Content) -> some View {
@@ -74,6 +183,14 @@ extension View {
     func sippedFormRows() -> some View {
         listRowBackground(SippedTheme.surface)
             .listRowSeparatorTint(SippedTheme.line)
+    }
+
+    func sippedNumericTransition<Value: Hashable>(value: Value) -> some View {
+        modifier(SippedNumericTransitionModifier(value: value))
+    }
+
+    func sippedBlurReplaceTransition() -> some View {
+        modifier(SippedBlurReplaceTransitionModifier())
     }
 }
 
@@ -114,6 +231,23 @@ struct SippedChip: View {
         .overlay {
             if !selected { Capsule().stroke(SippedTheme.line, lineWidth: 1) }
         }
+    }
+}
+
+struct KeyboardDismissButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "keyboard.chevron.compact.down")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.tint(.black.opacity(0.70)), in: .circle)
+        .accessibilityLabel("Dismiss keyboard")
+        .accessibilityIdentifier("keyboard.dismiss")
     }
 }
 

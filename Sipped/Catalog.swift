@@ -2,8 +2,8 @@ import Foundation
 import SwiftData
 
 enum CatalogSeeder {
-    static let currentSeedVersion = 3
-    static let retiredDrinkIDs: Set<String> = ["other-broth"]
+    static let currentSeedVersion = 4
+    static let retiredDrinkIDs: Set<String> = ["other-broth", "other-custom"]
 
     static let retiredContainerRemap: [String: String] = [
         "water-glass": "glass",
@@ -103,21 +103,21 @@ enum CatalogSeeder {
     static var builtInDrinks: [DrinkDefinition] { [
         drink("water-still", "Still Water", .water, "bottle", "water-bottle", 0, 0, 0, 0, "Fluid volume only; no hydration multiplier."),
         drink("water-sparkling", "Sparkling Water", .water, "glass", "glass", 0, 0, 0, 0, "Fluid volume only; unsweetened estimate."),
-        drink("coffee-espresso", "Espresso", .coffee, "espresso", "espresso-cup", 0, 63, 0, 0, "63 mg caffeine per espresso shot; sugar excludes additions."),
+        drink("coffee-espresso", "Espresso", .coffee, "cup", "espresso-cup", 0, 63, 0, 0, "63 mg caffeine per espresso shot; sugar excludes additions."),
         drink("coffee-long-black", "Long Black", .coffee, "mug", "ceramic-mug", 0, 63, 0, 0, "63 mg caffeine per espresso shot; sugar excludes additions."),
         drink("coffee-flat-white", "Flat White", .coffee, "mug", "ceramic-mug", 0, 63, 4.6, 0, "63 mg caffeine per shot; 4.6 g milk sugar per 100 mL."),
-        drink("coffee-latte", "Latte", .coffee, "tallGlass", "tall-glass", 0, 63, 4.7, 0, "63 mg caffeine per shot; 4.7 g milk sugar per 100 mL."),
+        drink("coffee-latte", "Latte", .coffee, "takeawayLarge", "large-takeaway", 0, 63, 4.7, 0, "63 mg caffeine per shot; 4.7 g milk sugar per 100 mL."),
         drink("coffee-cappuccino", "Cappuccino", .coffee, "mug", "ceramic-mug", 0, 63, 3.8, 0, "63 mg caffeine per shot; 3.8 g milk sugar per 100 mL."),
         drink("coffee-filter", "Filter Coffee", .coffee, "mug", "ceramic-mug", 40, 0, 0, 0, "40 mg caffeine per 100 mL brewed coffee."),
-        drink("coffee-cold-brew", "Cold Brew", .coffee, "tallGlass", "tall-glass", 55, 0, 0, 0, "55 mg caffeine per 100 mL cold brew estimate."),
-        drink("coffee-iced", "Iced Coffee", .coffee, "tallGlass", "tall-glass", 0, 63, 5.2, 0, "63 mg caffeine per shot; 5.2 g inherent sugar per 100 mL."),
+        drink("coffee-cold-brew", "Cold Brew", .coffee, "takeawayLarge", "large-takeaway", 55, 0, 0, 0, "55 mg caffeine per 100 mL cold brew estimate."),
+        drink("coffee-iced", "Iced Coffee", .coffee, "takeawayLarge", "large-takeaway", 0, 63, 5.2, 0, "63 mg caffeine per shot; 5.2 g inherent sugar per 100 mL."),
         drink("tea-black", "Black Tea", .tea, "cup", "cup", 20, 0, 0, 0, "20 mg caffeine per 100 mL brewed tea."),
         drink("tea-green", "Green Tea", .tea, "cup", "cup", 12, 0, 0, 0, "12 mg caffeine per 100 mL brewed tea."),
         drink("tea-chai", "Chai with Milk", .tea, "mug", "ceramic-mug", 14, 0, 4.8, 0, "14 mg caffeine and 4.8 g inherent sugar per 100 mL."),
         drink("soft-cola", "Cola", .softDrinks, "can", "standard-can", 9.5, 0, 10.6, 0, "9.5 mg caffeine and 10.6 g sugar per 100 mL."),
         drink("soft-lemonade", "Lemonade", .softDrinks, "can", "standard-can", 0, 0, 10.2, 0, "10.2 g sugar per 100 mL generic estimate."),
         drink("energy-regular", "Energy Drink", .energyDrinks, "slimCan", "slim-can", 32, 0, 11, 0, "32 mg caffeine and 11 g sugar per 100 mL."),
-        drink("energy-sugarfree", "Sugar-free Energy", .energyDrinks, "slimCan", "slim-can", 32, 0, 0, 0, "32 mg caffeine per 100 mL; zero-sugar estimate."),
+        drink("energy-sugarfree", "Energy Drink Sugar Free", .energyDrinks, "slimCan", "slim-can", 32, 0, 0, 0, "32 mg caffeine per 100 mL; zero-sugar estimate."),
         drink("juice-orange", "Orange Juice", .juice, "glass", "glass", 0, 0, 8.4, 0, "8.4 g naturally occurring sugar per 100 mL."),
         drink("juice-apple", "Apple Juice", .juice, "glass", "glass", 0, 0, 10.3, 0, "10.3 g naturally occurring sugar per 100 mL."),
         drink("milk-dairy", "Dairy Milk", .milk, "glass", "glass", 0, 0, 4.8, 0, "4.8 g naturally occurring lactose per 100 mL."),
@@ -132,12 +132,11 @@ enum CatalogSeeder {
         drink("wine-white", "White Wine", .wine, "wine", "wine-standard", 0, 0, 0.7, 12.5, "12.5% ABV and 0.7 g sugar per 100 mL generic dry white."),
         drink("spirits-whisky", "Whisky", .spirits, "lowball", "lowball-glass", 0, 0, 0, 40, "40% ABV generic spirit estimate."),
         drink("spirits-gin", "Gin", .spirits, "lowball", "lowball-glass", 0, 0, 0, 40, "40% ABV generic spirit estimate."),
-        drink("other-custom", "Other Drink", .other, "glass", "glass", 0, 0, 0, 0, "Values start at zero and can be edited for this log.")
     ] }
 
     static var builtInContainers: [ContainerDefinition] { [
         container("glass", "Glass", 250, "glass", [.water, .juice, .milk, .softDrinks, .kombucha, .smoothies, .other]),
-        container("tall-glass", "Tall glass", 400, "tallGlass", [.water, .juice, .milk, .smoothies, .softDrinks, .coffee, .spirits, .other]),
+        container("tall-glass", "Tall glass", 400, "tallGlass", [.water, .juice, .milk, .smoothies, .softDrinks, .spirits, .other]),
         container("cup", "Cup", 220, "cup", [.tea, .coffee, .other]),
         container("ceramic-mug", "Ceramic mug", 300, "mug", [.coffee, .tea, .other]),
         container("espresso-cup", "Espresso cup", 90, "espresso", [.coffee]),
@@ -192,7 +191,13 @@ enum CatalogSeeder {
             guard let drink = drinks.first(where: { $0.definitionID == id }),
                   let container = containers.first(where: { $0.containerID == drink.defaultContainerID })
                     ?? containers.first(where: { $0.supports(drink.category) }) else { continue }
-            let date = environment.date(byAddingDays: index - 6, to: environment.now)
+            // Spread past days across plausible drinking hours so time-of-day
+            // graphs read naturally; today's seed stays at the current moment.
+            let seedHours = [9, 8, 10, 18, 15, 13]
+            var date = environment.date(byAddingDays: index - 6, to: environment.now)
+            if index < seedHours.count {
+                date = environment.calendar.date(bySettingHour: seedHours[index], minute: (index * 17) % 55, second: 0, of: date) ?? date
+            }
             let volume = min(container.capacityML, drink.category.isAlcoholic ? 150 : 250)
             let values = MeasureCalculator.contributions(for: drink, volumeML: volume, shots: drink.category == .coffee ? 2 : 1,
                                                          addedSugarServes: drink.category == .coffee ? 1 : 0,

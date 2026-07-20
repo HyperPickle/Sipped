@@ -1,4 +1,3 @@
-import Charts
 import SwiftData
 import SwiftUI
 
@@ -39,6 +38,7 @@ struct HistoryView: View {
                     }
                 }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
             }
+            .scrollIndicators(.hidden)
             .background(SippedTheme.canvas).navigationTitle("History")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showingSettings = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings").accessibilityIdentifier("settings.open") } }
             .sheet(isPresented: $showingSettings) { SettingsSheet(preferences: preferences) }
@@ -48,19 +48,17 @@ struct HistoryView: View {
     private var historyChart: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Seven-day \(preferences.selectedMeasure.name.lowercased())", systemImage: preferences.selectedMeasure.symbol).font(.headline).foregroundStyle(preferences.selectedMeasure.color)
-            Chart(days) { day in
-                AreaMark(x: .value("Day", day.date, unit: .day), y: .value(preferences.selectedMeasure.name, day.totals.value(for: preferences.selectedMeasure)))
-                    .foregroundStyle(LinearGradient(colors: [preferences.selectedMeasure.color.opacity(0.22), preferences.selectedMeasure.color.opacity(0.01)], startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.catmullRom)
-                LineMark(x: .value("Day", day.date, unit: .day), y: .value(preferences.selectedMeasure.name, day.totals.value(for: preferences.selectedMeasure)))
-                    .foregroundStyle(preferences.selectedMeasure.color)
-                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .interpolationMethod(.catmullRom)
-                PointMark(x: .value("Day", day.date, unit: .day), y: .value(preferences.selectedMeasure.name, day.totals.value(for: preferences.selectedMeasure)))
-                    .foregroundStyle(preferences.selectedMeasure.color)
-                    .symbolSize(48)
-            }
-            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)); AxisTick(); AxisGridLine() } }
+            LiquidColumnsChart(
+                columns: days.map { day in
+                    LiquidColumn(id: day.date,
+                                 label: day.date.formatted(.dateTime.weekday(.narrow)),
+                                 value: day.totals.value(for: preferences.selectedMeasure),
+                                 isToday: environment.isDate(day.date, inSameDayAs: environment.now))
+                },
+                color: preferences.selectedMeasure.color,
+                valueLabel: { DisplayFormatter.value($0, measure: preferences.selectedMeasure, units: preferences.units) })
+            .id(preferences.selectedMeasure)
+            .sippedBlurReplaceTransition()
             .frame(height: 190).accessibilityIdentifier("history.graph")
         }
         .padding(16)
@@ -79,7 +77,10 @@ private struct HistoryDayRow: View {
                 ForEach(MeasureKind.allCases) { measure in
                     VStack(alignment: .leading, spacing: 3) {
                         Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
-                        Text(DisplayFormatter.value(day.totals.value(for: measure), measure: measure, units: preferences.units)).font(.caption2.bold().monospacedDigit()).lineLimit(1).minimumScaleFactor(0.55)
+                        Text(DisplayFormatter.value(day.totals.value(for: measure), measure: measure, units: preferences.units))
+                            .font(.caption2.bold())
+                            .sippedNumericTransition(value: day.totals.value(for: measure))
+                            .lineLimit(1).minimumScaleFactor(0.55)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -103,7 +104,9 @@ private struct HistoryDayDetail: View {
                         VStack(spacing: 5) {
                             Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
                             Text(DisplayFormatter.value(day.totals.value(for: measure), measure: measure, units: preferences.units))
-                                .font(.caption2.bold().monospacedDigit()).lineLimit(1).minimumScaleFactor(0.55)
+                                .font(.caption2.bold())
+                                .sippedNumericTransition(value: day.totals.value(for: measure))
+                                .lineLimit(1).minimumScaleFactor(0.55)
                             Text(measure.name).font(.caption2).foregroundStyle(SippedTheme.secondaryInk)
                         }
                         .frame(maxWidth: .infinity, minHeight: 62)
@@ -114,7 +117,9 @@ private struct HistoryDayDetail: View {
                 if day.logs.isEmpty { ContentUnavailableView("No drinks recorded", systemImage: "cup.and.saucer") }
                 ForEach(day.logs.reversed()) { log in Button { selectedLog = log } label: { LogEntryRow(log: log, preferences: preferences) }.buttonStyle(.plain) }
             }.padding(16)
-        }.background(SippedTheme.canvas).navigationTitle(day.date.formatted(.dateTime.weekday(.wide).day().month())).navigationBarTitleDisplayMode(.inline)
+        }
+        .scrollIndicators(.hidden)
+        .background(SippedTheme.canvas).navigationTitle(day.date.formatted(.dateTime.weekday(.wide).day().month())).navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedLog) { EntryDetailView(log: $0, preferences: preferences, onDelete: delete) }
         .overlay(alignment: .bottom) { if deletedSnapshot != nil { UndoBanner(action: undo) } }
     }

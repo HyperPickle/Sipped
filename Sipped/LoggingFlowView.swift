@@ -50,49 +50,52 @@ struct LoggingFlowView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch stage {
-                case .drink:
-                    DrinkStageView(
-                        drinks: drinks,
-                        logs: logs,
-                        preferences: preferences,
-                        search: $drinkSearch,
-                        filter: $drinkFilter,
-                        close: { dismiss() },
-                        createDrink: { showingCustomDrink = true },
-                        select: selectDrink
-                    )
-                case .container:
-                    if let selectedDrink {
-                        ContainerStageView(
-                            containers: containers,
-                            drink: selectedDrink,
-                            rememberedContainerID: rememberedContainerID(for: selectedDrink),
-                            selectedID: selectedContainer?.containerID,
-                            units: preferences.units,
-                            filter: $containerFilter,
-                            back: backToDrinks,
-                            createContainer: { showingCustomContainer = true },
-                            select: selectContainer
-                        )
-                    }
-                case .amount:
-                    if let selectedDrink, let selectedContainer {
-                        AmountStageView(
-                            drink: selectedDrink,
-                            container: selectedContainer,
+            ZStack {
+                Group {
+                    switch stage {
+                    case .drink:
+                        DrinkStageView(
+                            drinks: drinks,
+                            logs: logs,
                             preferences: preferences,
-                            environment: environment,
-                            back: { move(to: .container, direction: .backward) },
-                            completion: { dismiss() }
+                            search: $drinkSearch,
+                            filter: $drinkFilter,
+                            close: { dismiss() },
+                            createDrink: { showingCustomDrink = true },
+                            select: selectDrink
                         )
-                        .id(amountSession)
+                    case .container:
+                        if let selectedDrink {
+                            ContainerStageView(
+                                containers: containers,
+                                drink: selectedDrink,
+                                rememberedContainerID: rememberedContainerID(for: selectedDrink),
+                                selectedID: selectedContainer?.containerID,
+                                units: preferences.units,
+                                filter: $containerFilter,
+                                back: backToDrinks,
+                                createContainer: { showingCustomContainer = true },
+                                select: selectContainer
+                            )
+                        }
+                    case .amount:
+                        if let selectedDrink, let selectedContainer {
+                            AmountStageView(
+                                drink: selectedDrink,
+                                container: selectedContainer,
+                                preferences: preferences,
+                                environment: environment,
+                                back: { move(to: .container, direction: .backward) },
+                                completion: { dismiss() }
+                            )
+                            .id(amountSession)
+                        }
                     }
                 }
+                .id(stage)
+                .transition(stageTransition)
             }
-            .id(stage)
-            .transition(stageTransition)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .toolbar(.hidden, for: .navigationBar)
             .background(SippedTheme.canvas)
             .sheet(isPresented: $showingCustomDrink) { CustomDrinkForm() }
@@ -103,39 +106,43 @@ struct LoggingFlowView: View {
 
     private var stageTransition: AnyTransition {
         guard !reduceMotion else { return .opacity }
-        let insertion: Edge = direction == .forward ? .trailing : .leading
-        let removal: Edge = direction == .forward ? .leading : .trailing
-        return .asymmetric(
-            insertion: .move(edge: insertion).combined(with: .opacity),
-            removal: .move(edge: removal).combined(with: .opacity)
+        return SippedMotion.screenTransition(
+            direction: direction == .forward ? .forward : .backward
         )
     }
 
     private func selectDrink(_ drink: DrinkDefinition) {
-        selectedDrink = drink
-        selectedContainer = nil
-        containerFilter = .compatible
-        move(to: .container, direction: .forward)
+        move(to: .container, direction: .forward) {
+            selectedDrink = drink
+            selectedContainer = nil
+            containerFilter = .compatible
+        }
     }
 
     private func selectContainer(_ container: ContainerDefinition) {
-        selectedContainer = container
-        amountSession = UUID()
-        move(to: .amount, direction: .forward)
+        move(to: .amount, direction: .forward) {
+            selectedContainer = container
+            amountSession = UUID()
+        }
     }
 
     private func backToDrinks() {
-        selectedDrink = nil
-        selectedContainer = nil
-        move(to: .drink, direction: .backward)
+        move(to: .drink, direction: .backward) {
+            selectedContainer = nil
+        }
     }
 
-    private func move(to newStage: LoggingStage, direction newDirection: LoggingDirection) {
+    private func move(
+        to newStage: LoggingStage,
+        direction newDirection: LoggingDirection,
+        updates: () -> Void = {}
+    ) {
         direction = newDirection
-        let animation: Animation = reduceMotion
-            ? .easeInOut(duration: 0.18)
-            : .spring(response: 0.40, dampingFraction: 0.90)
-        withAnimation(animation) { stage = newStage }
+        let animation = reduceMotion ? SippedMotion.reduced : SippedMotion.screen
+        withAnimation(animation) {
+            updates()
+            stage = newStage
+        }
     }
 
     private func rememberedContainerID(for drink: DrinkDefinition) -> String? {
@@ -192,37 +199,35 @@ private struct DrinkStageView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(spacing: 0) {
+                SippedSearchField(prompt: "Search all drinks", text: $search)
+                    .focused($searchFocused)
+                    .accessibilityIdentifier("logger.search")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
 
-            SippedSearchField(prompt: "Search all drinks", text: $search)
-                .focused($searchFocused)
-                .accessibilityIdentifier("logger.search")
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    filterButton("All", symbol: "square.grid.2x2", value: .all, id: "all")
-                    filterButton("Recents", symbol: "clock", value: .recent, id: "recent")
-                    filterButton("My Drinks", symbol: "bookmark", value: .saved, id: "saved")
-                    ForEach(orderedCategories) { category in
-                        filterButton(
-                            category.name,
-                            symbol: category.symbol,
-                            value: .category(category),
-                            id: category.rawValue,
-                            tint: category.tint,
-                            selectedForeground: .white
-                        )
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        filterButton("All", symbol: "square.grid.2x2", value: .all, id: "all")
+                        filterButton("Recents", symbol: "clock", value: .recent, id: "recent")
+                        filterButton("My Drinks", symbol: "bookmark", value: .saved, id: "saved")
+                        ForEach(orderedCategories) { category in
+                            filterButton(
+                                category.name,
+                                symbol: category.symbol,
+                                value: .category(category),
+                                id: category.rawValue,
+                                tint: category.tint,
+                                selectedForeground: .white
+                            )
+                        }
                     }
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
-            }
-            .scrollIndicators(.hidden)
-            .padding(.bottom, 14)
+                .scrollIndicators(.hidden)
+                .padding(.bottom, 14)
 
-            ScrollView {
                 if filtered.isEmpty {
                     emptyState
                 } else {
@@ -231,7 +236,19 @@ private struct DrinkStageView: View {
                         .padding(.bottom, 24)
                 }
             }
-            .scrollDismissesKeyboard(.interactively)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) { header }
+        .safeAreaInset(edge: .bottom) {
+            if searchFocused {
+                HStack {
+                    Spacer()
+                    KeyboardDismissButton { searchFocused = false }
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 8)
+            }
         }
         .background(SippedTheme.canvas)
     }
@@ -239,7 +256,6 @@ private struct DrinkStageView: View {
     private var header: some View {
         LoggerHeader(
             title: "Choose a drink",
-            subtitle: "What would you like to log?",
             leadingSymbol: "xmark",
             leadingLabel: "Close",
             leadingIdentifier: "logger.close",
@@ -353,37 +369,35 @@ private struct ContainerStageView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(spacing: 0) {
+                SippedSearchField(prompt: "Search containers", text: $search)
+                    .accessibilityIdentifier("logger.containerSearch")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
 
-            SippedSearchField(prompt: "Search containers", text: $search)
-                .accessibilityIdentifier("logger.containerSearch")
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(ContainerLoggerFilter.allCases) { item in
-                        Button { filter = item } label: {
-                            SippedChip(
-                                title: item.rawValue,
-                                symbol: symbol(for: item),
-                                selected: filter == item,
-                                tint: drink.category.tint,
-                                selectedForeground: .white
-                            )
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(ContainerLoggerFilter.allCases) { item in
+                            Button { filter = item } label: {
+                                SippedChip(
+                                    title: item.rawValue,
+                                    symbol: symbol(for: item),
+                                    selected: filter == item,
+                                    tint: drink.category.tint,
+                                    selectedForeground: .white
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(filter == item ? .isSelected : [])
+                            .accessibilityIdentifier("logger.containerFilter.\(item == .compatible ? "compatible" : item == .saved ? "saved" : "all")")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(filter == item ? .isSelected : [])
-                        .accessibilityIdentifier("logger.containerFilter.\(item == .compatible ? "compatible" : item == .saved ? "saved" : "all")")
                     }
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
-            }
-            .scrollIndicators(.hidden)
-            .padding(.bottom, 14)
+                .scrollIndicators(.hidden)
+                .padding(.bottom, 14)
 
-            ScrollView {
                 if filtered.isEmpty {
                     emptyState
                 } else {
@@ -393,6 +407,8 @@ private struct ContainerStageView: View {
                         selectedID: selectedID,
                         liquidColor: visualSpec.liquid,
                         surfaceBand: visualSpec.band,
+                        showsParticles: visualSpec.isCarbonated,
+                        particleSeed: drink.definitionID,
                         tint: drink.category.tint,
                         units: units
                     )
@@ -401,13 +417,14 @@ private struct ContainerStageView: View {
                 }
             }
         }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .top, spacing: 0) { header }
         .background(SippedTheme.canvas)
     }
 
     private var header: some View {
         LoggerHeader(
             title: "Choose a container",
-            subtitle: "What are you drinking \(drink.name) from?",
             leadingSymbol: "chevron.left",
             leadingLabel: "Back to drinks",
             leadingIdentifier: "logger.back",
@@ -425,7 +442,9 @@ private struct ContainerStageView: View {
                 liquidColor: visualSpec.liquid,
                 fillFraction: 0.55,
                 showDetails: true,
-                surfaceBand: visualSpec.band
+                surfaceBand: visualSpec.band,
+                showsParticles: visualSpec.isCarbonated,
+                particleSeed: "\(drink.definitionID)-empty"
             )
                 .frame(width: 72, height: 110)
             Text(filter == .compatible ? "No compatible containers" : "No containers here yet")
@@ -460,7 +479,6 @@ private struct ContainerStageView: View {
 
 private struct LoggerHeader: View {
     let title: String
-    let subtitle: String
     let leadingSymbol: String
     let leadingLabel: String
     let leadingIdentifier: String
@@ -470,44 +488,44 @@ private struct LoggerHeader: View {
     let trailingAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack {
-                Text(title)
-                    .font(.title.bold())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .allowsTightening(true)
-                    .padding(.horizontal, 54)
-                    .frame(maxWidth: .infinity)
+        ZStack {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .padding(.horizontal, 52)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("logger.header")
 
-                HStack {
-                    headerButton(
-                        symbol: leadingSymbol,
-                        label: leadingLabel,
-                        identifier: leadingIdentifier,
-                        action: leadingAction,
-                        showsBackground: true
-                    )
-                    Spacer(minLength: 0)
-                    headerButton(
-                        symbol: "plus",
-                        label: trailingLabel,
-                        identifier: trailingIdentifier,
-                        action: trailingAction,
-                        showsBackground: false
-                    )
-                }
+            HStack {
+                headerButton(
+                    symbol: leadingSymbol,
+                    label: leadingLabel,
+                    identifier: leadingIdentifier,
+                    action: leadingAction
+                )
+                Spacer(minLength: 0)
+                headerButton(
+                    symbol: "plus",
+                    label: trailingLabel,
+                    identifier: trailingIdentifier,
+                    action: trailingAction
+                )
             }
-
-            Text(subtitle)
-                .font(.subheadline)
-                .foregroundStyle(SippedTheme.secondaryInk)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(6)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(.gray.opacity(0.28))
+                }
+                .allowsHitTesting(false)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 18)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
     }
 
     private func headerButton(
@@ -515,13 +533,18 @@ private struct LoggerHeader: View {
         label: String,
         identifier: String,
         action: @escaping () -> Void,
-        showsBackground: Bool
     ) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.body.weight(.semibold))
-                .frame(width: 44, height: 44)
-                .background(showsBackground ? SippedTheme.surface : .clear, in: Circle())
+            ZStack {
+                Rectangle()
+                    .fill(.white.opacity(0.001))
+                Image(systemName: symbol)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleButtonStyle())
         .accessibilityLabel(label)
@@ -649,19 +672,21 @@ struct AmountFillView: View {
     var body: some View {
         GeometryReader { proxy in
             let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
-            VStack(spacing: compact ? 6 : 10) {
+            VStack(spacing: 0) {
                 header
 
-                fillVessel
-                    .frame(
-                        width: min(proxy.size.width * 0.76, compact ? 250 : 310),
-                        height: min(proxy.size.height * (compact ? 0.46 : 0.56), compact ? 300 : 430)
-                    )
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: compact ? 6 : 12) {
+                    fillVessel
+                        .frame(
+                            width: min(proxy.size.width * 0.82, compact ? 260 : 320),
+                            height: min(proxy.size.height * (compact ? 0.38 : 0.43), compact ? 280 : 350)
+                        )
+                        .frame(maxWidth: .infinity)
 
-                amountValue(compact: compact)
-
-                Spacer(minLength: 0)
+                    amountValue(compact: compact)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .offset(y: compact ? 0 : 24)
 
                 Button { confirm(amountML) } label: {
                     Text(confirmationTitle)
@@ -712,7 +737,9 @@ struct AmountFillView: View {
                 fillFraction: fraction,
                 showDetails: true,
                 surfaceBand: visualSpec.band,
-                showsParticles: visualSpec.isCarbonated
+                showsParticles: visualSpec.isCarbonated,
+                particleSeed: "amount-\(artworkID)",
+                fit: .visibleBounds
             )
             GeometryReader { proxy in
                 Color.clear
@@ -759,8 +786,7 @@ struct AmountFillView: View {
                     } label: {
                         Text(Int(amountML.rounded()), format: .number)
                             .font(.system(size: compact ? 46 : 58, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .contentTransition(.numericText())
+                            .sippedNumericTransition(value: Int(amountML.rounded()))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(Int(amountML.rounded())) millilitres. Edit exact amount")
@@ -770,11 +796,11 @@ struct AmountFillView: View {
                     .font(.title2.bold())
                     .foregroundStyle(SippedTheme.secondaryInk)
             }
-            .contentTransition(.numericText())
 
             Text("\(Int((fraction * 100).rounded()))%")
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .foregroundStyle(SippedTheme.secondaryInk)
+                .sippedNumericTransition(value: Int((fraction * 100).rounded()))
                 .accessibilityIdentifier("amount.percentage")
         }
         .accessibilityElement(children: .contain)

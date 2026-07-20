@@ -10,9 +10,11 @@ private enum LibrarySection: String, CaseIterable, Identifiable {
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \DrinkDefinition.name) private var drinks: [DrinkDefinition]
     @Query(sort: \ContainerDefinition.name) private var containers: [ContainerDefinition]
     @Bindable var preferences: UserPreferences
+    @Binding var isSearchFocused: Bool
     @State private var section: LibrarySection = .drinks
     @State private var searchText = ""
     @State private var selectedCategory: DrinkCategory?
@@ -21,6 +23,7 @@ struct LibraryView: View {
     @State private var selectedDrink: DrinkDefinition?
     @State private var selectedContainer: ContainerDefinition?
     @State private var showingSettings = false
+    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -29,37 +32,54 @@ struct LibraryView: View {
                     librarySections
 
                     SippedSearchField(prompt: section == .containers ? "Search containers" : "Search drinks", text: $searchText)
+                        .focused($searchFieldFocused)
                         .accessibilityIdentifier("library.search")
 
                     if section != .saved { categoryFilters }
 
-                    switch section {
-                    case .drinks:
-                        galleryHeader("Drink library", subtitle: "Familiar drinks, ready to log")
-                        DrinkCardGrid(drinks: filteredDrinks.filter(\.isBuiltIn)) { selectedDrink = $0 }
-                    case .saved:
-                        galleryHeader("My Drinks", subtitle: "Your repeat preparations")
-                        let saved = filteredDrinks.filter { !$0.isBuiltIn }
-                        if saved.isEmpty {
-                            emptyState("No saved drinks yet", symbol: "bookmark", action: { showingCustomDrink = true })
-                        } else {
-                            DrinkCardGrid(drinks: saved) { selectedDrink = $0 }
-                        }
-                    case .containers:
-                        galleryHeader("Container library", subtitle: "Find a vessel by shape or capacity")
-                        ForEach(containerGroups, id: \.title) { group in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(group.title)
-                                    .font(.headline)
-                                ContainerCardGrid(containers: group.containers) { selectedContainer = $0 }
+                    Group {
+                        switch section {
+                        case .drinks:
+                            galleryHeader("Drink library", subtitle: "Familiar drinks, ready to log")
+                            DrinkCardGrid(drinks: filteredDrinks.filter(\.isBuiltIn)) { selectedDrink = $0 }
+                        case .saved:
+                            galleryHeader("My Drinks", subtitle: "Your repeat preparations")
+                            let saved = filteredDrinks.filter { !$0.isBuiltIn }
+                            if saved.isEmpty {
+                                emptyState("No saved drinks yet", symbol: "bookmark", action: { showingCustomDrink = true })
+                            } else {
+                                DrinkCardGrid(drinks: saved) { selectedDrink = $0 }
+                            }
+                        case .containers:
+                            galleryHeader("Container library", subtitle: "Find a vessel by shape or capacity")
+                            ForEach(containerGroups, id: \.title) { group in
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(group.title)
+                                        .font(.headline)
+                                    ContainerCardGrid(containers: group.containers) { selectedContainer = $0 }
+                                }
                             }
                         }
                     }
+                    .id(section)
+                    .sippedBlurReplaceTransition()
+                    .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.screen, value: section)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }
             .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
+            .safeAreaInset(edge: .bottom) {
+                if searchFieldFocused {
+                    HStack {
+                        Spacer()
+                        KeyboardDismissButton { searchFieldFocused = false }
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 8)
+                }
+            }
             .background(SippedTheme.canvas)
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.large)
@@ -81,6 +101,8 @@ struct LibraryView: View {
             .sheet(item: $selectedDrink) { DrinkDefinitionDetail(drink: $0) }
             .sheet(item: $selectedContainer) { ContainerDefinitionDetail(container: $0) }
             .sheet(isPresented: $showingSettings) { SettingsSheet(preferences: preferences) }
+            .onChange(of: searchFieldFocused) { _, focused in isSearchFocused = focused }
+            .onDisappear { isSearchFocused = false }
         }
     }
 
@@ -181,6 +203,7 @@ struct LibraryView: View {
 
 struct DrinkCardGrid: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let drinks: [DrinkDefinition]
     let action: (DrinkDefinition) -> Void
     private var accessibilityLayout: Bool { dynamicTypeSize >= .accessibility1 }
@@ -194,38 +217,46 @@ struct DrinkCardGrid: View {
         LazyVGrid(columns: columns, spacing: 12) {
             ForEach(drinks) { drink in
                 Button { action(drink) } label: {
-                    VStack(spacing: 11) {
+                    VStack(spacing: 12) {
                         DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID)
-                            .frame(height: accessibilityLayout ? 150 : 116)
-                            .padding(.top, 5)
-                        VStack(spacing: 4) {
-                            Text(drink.name).font(.headline).multilineTextAlignment(.center).lineLimit(2, reservesSpace: true)
-                            Text(drink.category.name)
-                                .font(.caption2.weight(.semibold)).foregroundStyle(drink.category.tint).lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
+                            .frame(height: accessibilityLayout ? 190 : 132)
+                            .frame(maxWidth: .infinity)
+                        Text(drink.name)
+                            .font(GalleryStyle.titleFont)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(accessibilityLayout ? 3 : 2)
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: accessibilityLayout ? 96 : 44,
+                                alignment: .top
+                            )
                     }
+                    .padding(accessibilityLayout ? 20 : 12)
                     .frame(maxWidth: .infinity)
-                    .frame(height: accessibilityLayout ? 410 : 208)
-                    .padding(14)
+                    .frame(minHeight: accessibilityLayout ? 338 : 212, alignment: .top)
                     .background(drink.category.tint.opacity(0.115), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PressScaleButtonStyle())
+                .sippedBlurReplaceTransition()
                 .accessibilityLabel("\(drink.name), \(drink.category.name)")
                 .accessibilityIdentifier("drink.\(drink.definitionID)")
             }
         }
+        .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.element, value: drinks.map(\.definitionID))
     }
 }
 
 struct ContainerCardGrid: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let containers: [ContainerDefinition]
     let action: (ContainerDefinition) -> Void
     var selectedID: String? = nil
     var liquidColor: Color = SippedTheme.containerPreviewLiquid
     var surfaceBand: SurfaceBandSpec? = nil
+    var showsParticles = false
+    var particleSeed = ""
     var tint: Color? = nil
     var units: DisplayUnits = .metric
     private var accessibilityLayout: Bool { dynamicTypeSize >= .accessibility1 }
@@ -245,20 +276,33 @@ struct ContainerCardGrid: View {
                             liquidColor: liquidColor,
                             fillFraction: 0.68,
                             showDetails: surfaceBand != nil,
-                            surfaceBand: surfaceBand
+                            surfaceBand: surfaceBand,
+                            showsParticles: showsParticles,
+                            particleSeed: "\(particleSeed)-\(container.containerID)"
                         )
                             .frame(height: artworkHeight(for: container))
-                            .frame(height: accessibilityLayout ? 156 : 122, alignment: .bottom)
-                            .padding(.top, 4)
-                        Text(container.name).font(.headline).multilineTextAlignment(.leading).lineLimit(2, reservesSpace: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(DisplayFormatter.volume(container.capacityML, units: units))
-                            .font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(cardTint)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: accessibilityLayout ? 190 : 136, alignment: .bottom)
+                        VStack(spacing: 4) {
+                            Text(container.name)
+                                .font(GalleryStyle.titleFont)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(accessibilityLayout ? 3 : 2)
+                                .frame(maxWidth: .infinity)
+                            Text(DisplayFormatter.volume(container.capacityML, units: units))
+                                .font(GalleryStyle.capacityFont)
+                                .foregroundStyle(cardTint)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: accessibilityLayout ? 112 : 64,
+                            alignment: .top
+                        )
                     }
+                    .padding(accessibilityLayout ? 20 : 12)
                     .frame(maxWidth: .infinity)
-                    .frame(height: accessibilityLayout ? 410 : 210)
-                    .padding(14)
+                    .frame(minHeight: accessibilityLayout ? 352 : 234, alignment: .top)
                     .background(selectedID == container.containerID ? cardTint.opacity(0.15) : SippedTheme.surface,
                                 in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay {
@@ -268,18 +312,20 @@ struct ContainerCardGrid: View {
                     }
                 }
                 .buttonStyle(PressScaleButtonStyle())
+                .sippedBlurReplaceTransition()
                 .accessibilityLabel("\(container.name), \(DisplayFormatter.volume(container.capacityML, units: units))")
                 .accessibilityIdentifier("container.\(container.containerID)")
             }
         }
+        .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.element, value: containers.map(\.containerID))
     }
 
     private var cardTint: Color { tint ?? liquidColor }
 
     private func artworkHeight(for container: ContainerDefinition) -> CGFloat {
         let normalized = sqrt(min(max(container.capacityML, 0), 1_180) / 1_180)
-        let scale = 0.48 + normalized * 0.52
-        return (accessibilityLayout ? 156 : 122) * scale
+        let scale = 0.68 + normalized * 0.32
+        return (accessibilityLayout ? 190 : 136) * scale
     }
 }
 
@@ -323,6 +369,7 @@ private struct DrinkDefinitionDetail: View {
                     }
                 }.padding()
             }
+            .scrollIndicators(.hidden)
             .background(SippedTheme.canvas)
             .navigationTitle(drink.name)
             .navigationBarTitleDisplayMode(.inline)
@@ -380,7 +427,9 @@ private struct ContainerDefinitionDetail: View {
                     }.sippedCard()
                     if !container.isBuiltIn { Button("Delete custom container", role: .destructive) { confirmDelete = true }.frame(minHeight: 44) }
                 }.padding(16)
-            }.background(SippedTheme.canvas)
+            }
+            .scrollIndicators(.hidden)
+            .background(SippedTheme.canvas)
             .navigationTitle(container.name).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .confirmationDialog("Delete \(container.name)?", isPresented: $confirmDelete) {
@@ -429,6 +478,7 @@ struct CustomDrinkForm: View {
                 }.sippedFormRows()
                 if category == .coffee { Section("Regular preparation") { TextField("Milk type (optional)", text: $milkType) }.sippedFormRows() }
             }
+            .scrollIndicators(.hidden)
             .sippedFormCanvas()
             .navigationTitle("New Drink")
             .navigationBarTitleDisplayMode(.inline)
@@ -478,6 +528,7 @@ struct CustomContainerForm: View {
                     }
                 }.sippedFormRows()
             }
+            .scrollIndicators(.hidden)
             .sippedFormCanvas()
             .navigationTitle("New Container")
             .navigationBarTitleDisplayMode(.inline)

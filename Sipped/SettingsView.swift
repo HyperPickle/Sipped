@@ -17,12 +17,10 @@ struct SettingsView: View {
 
                 settingsPanel("Alcohol calculation", spacing: 8) {
                     HStack(spacing: 12) {
-                        Image(systemName: "globe.asia.australia.fill")
+                        Text("Regional standard")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(MeasureKind.alcohol.color, in: Circle())
-                        Text("Regional standard").font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .accessibilityIdentifier("settings.regionalStandard")
                         Spacer()
                         Menu {
                             ForEach(AlcoholStandard.allCases) { standard in
@@ -69,6 +67,7 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                Divider()
                 Text("This changes ordering only. Every category remains searchable.")
                     .font(.caption).foregroundStyle(SippedTheme.secondaryInk)
                 }
@@ -82,6 +81,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
         }
+        .scrollIndicators(.hidden)
         .background(SippedTheme.canvas)
         .navigationTitle("Settings")
         .sheet(isPresented: $confirmReset) {
@@ -192,6 +192,7 @@ private struct DeleteAllDataConfirmation: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 18)
         }
+        .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SippedTheme.canvas)
     }

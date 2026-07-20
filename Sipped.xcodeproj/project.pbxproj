@@ -13,6 +13,8 @@
 		2CCA82FA4950DB653EFFED3A /* SippedAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1691E90D67B9E33AE1AD4B6C /* SippedAcceptanceTests.swift */; };
 		383813A3ADB9B8445E849E42 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32E08F15B187DA6633F202D4 /* TodayView.swift */; };
 		55B6537273E9BF21E0FF636D /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 502CA4085CE69DAE39DF02EB /* DesignSystem.swift */; };
+		5EE51F7FE7326C3D978B8B22 /* LiquidGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6D7CF16051A24D1533B298 /* LiquidGraph.swift */; };
+		5F9204679E4EBDF445C3FF80 /* Sipped.icon in Resources */ = {isa = PBXBuildFile; fileRef = 36D8FE87B7E7D02542D8CDC7 /* Sipped.icon */; };
 		67569439F8E636D0A17ED780 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C674E7904AE83363C66477B6 /* Assets.xcassets */; };
 		68F94B0BD6C19C370FA23FD0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D9762E7B698B361053FC1D /* SettingsView.swift */; };
 		751B9A125103AF9FCB74709C /* MeasureCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03E8690125F99710DD62CE5 /* MeasureCalculatorTests.swift */; };
@@ -47,16 +49,18 @@
 
 /* Begin PBXFileReference section */
 		07122EA05CB65368A7744EFC /* VesselArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VesselArtwork.swift; sourceTree = "<group>"; };
+		0F6D7CF16051A24D1533B298 /* LiquidGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGraph.swift; sourceTree = "<group>"; };
 		1691E90D67B9E33AE1AD4B6C /* SippedAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SippedAcceptanceTests.swift; sourceTree = "<group>"; };
 		1D06202F010E7B2EA02EE681 /* CatalogCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogCoverageTests.swift; sourceTree = "<group>"; };
 		20D9762E7B698B361053FC1D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2DE8A484ACC98D436AB1DFEB /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
 		32E08F15B187DA6633F202D4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		36D8FE87B7E7D02542D8CDC7 /* Sipped.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = Sipped.icon; sourceTree = "<group>"; };
 		3B3616F5CEDB3501846FB755 /* Domain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Domain.swift; sourceTree = "<group>"; };
 		4A082281DB86D9F44D40DABC /* SippedUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SippedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		502CA4085CE69DAE39DF02EB /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		567B82C69A117B1EA3C5D6C3 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
-		5BFFA764067F5D109D058C60 /* Sipped.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sipped.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5BFFA764067F5D109D058C60 /* Sipped.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sipped.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		691F97B473F552D0752F1E85 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		94269E056D5628C24AB58483 /* SippedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SippedApp.swift; sourceTree = "<group>"; };
 		9EA366A3B4157201FC2A9961 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
@@ -90,12 +94,14 @@
 				3B3616F5CEDB3501846FB755 /* Domain.swift */,
 				9EA366A3B4157201FC2A9961 /* HistoryView.swift */,
 				567B82C69A117B1EA3C5D6C3 /* LibraryView.swift */,
+				0F6D7CF16051A24D1533B298 /* LiquidGraph.swift */,
 				C6BB632D05DE8F9283A1739F /* LoggingFlowView.swift */,
 				CB8D8151B1D968E444B745F3 /* LogViews.swift */,
 				A02D5FB6D938EC045251B024 /* MainTabView.swift */,
 				DECD168BE4381DE416DE7659 /* OnboardingView.swift */,
 				D8517EDD55915B869C0BDD3D /* RootView.swift */,
 				20D9762E7B698B361053FC1D /* SettingsView.swift */,
+				36D8FE87B7E7D02542D8CDC7 /* Sipped.icon */,
 				94269E056D5628C24AB58483 /* SippedApp.swift */,
 				32E08F15B187DA6633F202D4 /* TodayView.swift */,
 				07122EA05CB65368A7744EFC /* VesselArtwork.swift */,
@@ -239,6 +245,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				67569439F8E636D0A17ED780 /* Assets.xcassets in Resources */,
+				5F9204679E4EBDF445C3FF80 /* Sipped.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,6 +271,7 @@
 				09B94847BADC79CD6D1EA865 /* Domain.swift in Sources */,
 				C1B3F1B6ECABEB9CF413D9D0 /* HistoryView.swift in Sources */,
 				9AF66617D4E142A0B0130443 /* LibraryView.swift in Sources */,
+				5EE51F7FE7326C3D978B8B22 /* LiquidGraph.swift in Sources */,
 				BE35BA1C404D8352BC879AE2 /* LogViews.swift in Sources */,
 				A952AE062914F8BC605485BC /* LoggingFlowView.swift in Sources */,
 				7895066F2B59F4E09867FAFE /* MainTabView.swift in Sources */,
@@ -353,7 +361,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -370,10 +378,11 @@
 		36E3CB831E1C7B8AF9A16523 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Sipped;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sipped;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -381,6 +390,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rishisinghal.Sipped;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -485,7 +495,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -518,10 +528,11 @@
 		FF934B15DEABF591007F0829 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Sipped;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sipped;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -529,6 +540,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rishisinghal.Sipped;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;

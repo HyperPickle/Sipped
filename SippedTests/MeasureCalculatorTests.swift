@@ -3,6 +3,12 @@ import XCTest
 
 @MainActor
 final class MeasureCalculatorTests: XCTestCase {
+    func testTabMotionDirectionFollowsVisualOrder() {
+        XCTAssertEqual(SippedMotion.direction(from: 0, to: 2), .forward)
+        XCTAssertEqual(SippedMotion.direction(from: 2, to: 0), .backward)
+        XCTAssertEqual(SippedMotion.direction(from: 1, to: 1), .forward)
+    }
+
     func testZeroAndFullContainerAmounts() {
         let drink = DrinkDefinition(name: "Test", category: .water, basis: "Test")
         let zero = MeasureCalculator.contributions(for: drink, volumeML: 0, shots: 1, addedSugarServes: 0, standard: .australia)

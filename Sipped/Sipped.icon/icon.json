@@ -1,0 +1,110 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : "system-dark"
+    },
+    {
+      "appearance" : "dark",
+      "value" : "system-dark"
+    }
+  ],
+  "groups" : [
+    {
+      "hidden" : false,
+      "layers" : [
+        {
+          "image-name" : "liquid-wine 2.svg",
+          "name" : "liquid-wine 2",
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 0.9,
+                "translation-in-points" : [
+                  40,
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "image-name" : "liquid-water 2.svg",
+          "name" : "liquid-water 2",
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 0.94,
+                "translation-in-points" : [
+                  -2.5,
+                  29
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "image-name" : "liquid-beer.svg",
+          "name" : "liquid-beer",
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
+                  18,
+                  14
+                ]
+              }
+            },
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 0.9,
+                "translation-in-points" : [
+                  12,
+                  25
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "glass" : true,
+          "image-name" : "vessels.svg",
+          "name" : "vessels",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0.85
+            }
+          ],
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              13.71875,
+              14
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

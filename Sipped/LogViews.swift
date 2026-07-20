@@ -54,7 +54,10 @@ struct LogEntryRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(log.drinkName).font(.headline).lineLimit(2)
                 Text("\(DisplayFormatter.volume(log.consumedML, units: preferences.units)) • \(log.containerName)")
-                    .font(.subheadline).foregroundStyle(SippedTheme.secondaryInk).lineLimit(1)
+                    .font(.subheadline)
+                    .foregroundStyle(SippedTheme.secondaryInk)
+                    .sippedNumericTransition(value: log.consumedML)
+                    .lineLimit(1)
                 HStack(spacing: 10) {
                     if log.caffeineMG > 0 { miniMetric(.caffeine, log.caffeineMG) }
                     if log.sugarG > 0 { miniMetric(.sugar, log.sugarG) }
@@ -91,7 +94,8 @@ struct EntryDetailView: View {
                         DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID)
                             .frame(height: 148)
                         Text(DisplayFormatter.volume(log.consumedML, units: preferences.units))
-                            .font(.title2.bold().monospacedDigit())
+                            .font(.title2.bold())
+                            .sippedNumericTransition(value: log.consumedML)
                         Text(log.containerName).font(.subheadline).foregroundStyle(SippedTheme.secondaryInk)
                     }
                     .padding(18)
@@ -119,6 +123,7 @@ struct EntryDetailView: View {
                     Button("Delete entry", role: .destructive) { confirmDelete = true }.frame(minHeight: 44)
                 }.padding(16)
             }
+            .scrollIndicators(.hidden)
             .background(SippedTheme.canvas)
             .navigationTitle(log.drinkName).navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -133,7 +138,14 @@ struct EntryDetailView: View {
     }
 
     private func detail(_ title: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) { Text(title).foregroundStyle(SippedTheme.secondaryInk); Spacer(); Text(value).fontWeight(.semibold).multilineTextAlignment(.trailing) }
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).foregroundStyle(SippedTheme.secondaryInk)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+                .multilineTextAlignment(.trailing)
+                .sippedNumericTransition(value: value)
+        }
             .accessibilityElement(children: .combine)
     }
 }

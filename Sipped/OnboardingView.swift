@@ -23,13 +23,13 @@ struct OnboardingView: View {
                         .frame(width: index == page ? 28 : 8, height: 6)
                 }
             }
-            .animation(animationsEnabled ? .spring(response: 0.34, dampingFraction: 0.82) : nil, value: page)
+            .animation(animationsEnabled ? SippedMotion.screen : nil, value: page)
             .padding(.top, 18)
             .accessibilityHidden(true)
 
             currentPage
                 .id(page)
-                .transition(.opacity.combined(with: .offset(x: 14)))
+                .transition(reduceMotion ? .opacity : SippedMotion.screenTransition(direction: .forward))
 
             Button(action: advance) {
                 Text(page == 2 ? "Open Today" : "Continue")
@@ -135,7 +135,7 @@ struct OnboardingView: View {
             try? modelContext.save()
             return
         }
-        if animationsEnabled { withAnimation(.easeOut(duration: 0.22)) { page += 1 } }
+        if animationsEnabled { withAnimation(SippedMotion.screen) { page += 1 } }
         else { page += 1 }
     }
 

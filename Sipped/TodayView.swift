@@ -1,14 +1,5 @@
-import Charts
 import SwiftData
 import SwiftUI
-
-private struct TodayGraphPoint: Identifiable {
-    let id: String
-    let index: Int
-    let value: Double
-    let category: DrinkCategory
-    let name: String
-}
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -18,13 +9,12 @@ struct TodayView: View {
     let openLogger: () -> Void
     @State private var selectedLog: DrinkLog?
     @State private var deletedSnapshot: LogSnapshot?
-    @State private var showingSettings = false
 
     private var logs: [DrinkLog] { allLogs.filter { environment.isDate($0.loggedAt, inSameDayAs: environment.now) } }
     private var totals: DailyTotals { DailyTotals(logs: logs, standard: preferences.alcoholStandard) }
-    private var graphPoints: [TodayGraphPoint] {
+    private var graphPoints: [ReservoirPoint] {
         var runningTotal = 0.0
-        return logs.enumerated().compactMap { index, log in
+        return logs.sorted { $0.loggedAt < $1.loggedAt }.compactMap { log in
             let value: Double
             switch preferences.selectedMeasure {
             case .fluid: value = log.consumedML
@@ -34,7 +24,8 @@ struct TodayView: View {
             }
             guard value > 0 else { return nil }
             runningTotal += value
-            return TodayGraphPoint(id: log.logID, index: index, value: runningTotal, category: log.category, name: log.drinkName)
+            return ReservoirPoint(id: log.logID, time: log.loggedAt, level: runningTotal,
+                                  tint: log.category.tint, symbol: log.category.symbol)
         }
     }
 
@@ -47,41 +38,40 @@ struct TodayView: View {
                         Text(environment.now.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.title2.weight(.bold))
                     }
                     totalsGrid
-                    MeasureSelector(selection: Binding(get: { preferences.selectedMeasure }, set: { preferences.selectedMeasure = $0; try? modelContext.save() }))
-                    graph
-                    SippedSectionHeading(eyebrow: nil, title: "Drinks", trailing: "\(logs.count)")
-                    if logs.isEmpty { emptyState } else {
+                    if logs.isEmpty {
+                        emptyState
+                    } else {
+                        MeasureSelector(selection: Binding(get: { preferences.selectedMeasure }, set: { preferences.selectedMeasure = $0; try? modelContext.save() }))
+                        graph
+                        SippedSectionHeading(eyebrow: nil, title: "Drinks", trailing: "\(logs.count)")
                         LazyVStack(spacing: 10) {
                             ForEach(logs.reversed()) { log in Button { selectedLog = log } label: { LogEntryRow(log: log, preferences: preferences) }.buttonStyle(.plain) }
                         }
                     }
                 }.padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 20)
             }
+            .scrollIndicators(.hidden)
             .background(SippedTheme.canvas)
-            .navigationTitle("Sipped").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showingSettings = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings").accessibilityIdentifier("settings.open") } }
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedLog) { EntryDetailView(log: $0, preferences: preferences, onDelete: delete) }
-            .sheet(isPresented: $showingSettings) { SettingsSheet(preferences: preferences) }
             .overlay(alignment: .bottom) { if deletedSnapshot != nil { UndoBanner(action: undo).padding(.bottom, 4) } }
         }
     }
 
     private var totalsGrid: some View {
         HStack(spacing: 0) {
-            ForEach(Array(MeasureKind.allCases.enumerated()), id: \.element.id) { index, measure in
+            ForEach(MeasureKind.allCases) { measure in
                 VStack(alignment: .leading, spacing: 6) {
                     Image(systemName: measure.symbol).font(.caption.weight(.semibold)).foregroundStyle(measure.color)
                     Text(DisplayFormatter.value(totals.value(for: measure), measure: measure, units: preferences.units))
-                        .font(.subheadline.bold().monospacedDigit()).lineLimit(1).minimumScaleFactor(0.55)
+                        .font(.subheadline.bold())
+                        .sippedNumericTransition(value: totals.value(for: measure))
+                        .lineLimit(1).minimumScaleFactor(0.55)
                     Text(measure.name).font(.caption2).foregroundStyle(SippedTheme.secondaryInk).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, index == 0 ? 0 : 10)
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("today.total.\(measure.rawValue)")
-                if index < MeasureKind.allCases.count - 1 {
-                    Divider().frame(height: 44)
-                }
             }
         }
         .padding(.vertical, 13)
@@ -93,32 +83,25 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("\(preferences.selectedMeasure.name) by drink", systemImage: preferences.selectedMeasure.symbol).font(.headline).foregroundStyle(preferences.selectedMeasure.color)
-                Spacer(); Text(DisplayFormatter.value(totals.value(for: preferences.selectedMeasure), measure: preferences.selectedMeasure, units: preferences.units)).font(.subheadline.bold().monospacedDigit())
+                Spacer()
+                Text(DisplayFormatter.value(totals.value(for: preferences.selectedMeasure), measure: preferences.selectedMeasure, units: preferences.units))
+                    .font(.subheadline.bold())
+                    .sippedNumericTransition(value: totals.value(for: preferences.selectedMeasure))
             }
-            if graphPoints.isEmpty {
-                ContentUnavailableView("No \(preferences.selectedMeasure.name.lowercased()) contributions", systemImage: preferences.selectedMeasure.symbol)
-                    .frame(maxWidth: .infinity, minHeight: 150)
-            } else {
-                Chart(graphPoints) { point in
-                    AreaMark(x: .value("Drink", point.index), y: .value(preferences.selectedMeasure.name, point.value))
-                        .foregroundStyle(LinearGradient(colors: [preferences.selectedMeasure.color.opacity(0.24), preferences.selectedMeasure.color.opacity(0.015)], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.monotone)
-                    LineMark(x: .value("Drink", point.index), y: .value(preferences.selectedMeasure.name, point.value))
-                        .foregroundStyle(preferences.selectedMeasure.color)
-                        .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                        .interpolationMethod(.monotone)
-                    PointMark(x: .value("Drink", point.index), y: .value(preferences.selectedMeasure.name, point.value))
-                        .foregroundStyle(point.category.tint)
-                        .symbolSize(72)
-                        .annotation(position: .top) {
-                            Image(systemName: point.category.symbol).font(.caption2.weight(.bold)).foregroundStyle(point.category.tint).accessibilityHidden(true)
-                        }
+            Group {
+                if graphPoints.isEmpty {
+                    ContentUnavailableView("No \(preferences.selectedMeasure.name.lowercased()) contributions", systemImage: preferences.selectedMeasure.symbol)
+                        .frame(maxWidth: .infinity, minHeight: 150)
+                } else {
+                    ReservoirGraph(points: graphPoints, now: environment.now,
+                                   color: preferences.selectedMeasure.color,
+                                   valueLabel: { DisplayFormatter.value($0, measure: preferences.selectedMeasure, units: preferences.units) })
+                    .frame(height: 170)
+                    .accessibilityIdentifier("today.graph.\(preferences.selectedMeasure.rawValue)")
                 }
-                .chartXAxis(.hidden)
-                .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(SippedTheme.line); AxisValueLabel() } }
-                .frame(height: 170)
-                .accessibilityIdentifier("today.graph.\(preferences.selectedMeasure.rawValue)")
             }
+            .id(preferences.selectedMeasure)
+            .sippedBlurReplaceTransition()
         }
         .padding(16)
         .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -146,11 +129,16 @@ struct TodayView: View {
 }
 
 struct MeasureSelector: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selection: MeasureKind
     var body: some View {
         HStack(spacing: 4) {
             ForEach(MeasureKind.allCases) { measure in
-                Button { selection = measure } label: {
+                Button {
+                    withAnimation(reduceMotion ? SippedMotion.reduced : SippedMotion.element) {
+                        selection = measure
+                    }
+                } label: {
                     HStack(spacing: 5) {
                         Image(systemName: measure.symbol).font(.caption)
                         Text(measure.name).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.65)

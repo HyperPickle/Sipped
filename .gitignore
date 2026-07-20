@@ -44,7 +44,6 @@ fastlane/test_output
 iOSInjectionProject/
 
 # Agent tooling
-AGENTS.md
 .scratch/
 
 # macOS
@@ -52,6 +51,5 @@ AGENTS.md
 
 # Reference/report artifacts
 artifacts/
-graphify-out/
 sipped-screen-report*.html
 docs/

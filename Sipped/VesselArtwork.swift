@@ -10,18 +10,20 @@ private enum VesselPrimitive {
         return false
     }
 
-    func path(in size: CGSize) -> Path {
-        let designPath: Path
+    var designPath: Path {
         switch self {
         case let .svg(data, _):
             var parser = SVGPathParser(data)
-            designPath = parser.path()
+            return parser.path()
         case let .rect(rect):
-            designPath = Path(rect)
+            return Path(rect)
         case let .roundedRect(rect, radius):
-            designPath = Path(roundedRect: rect, cornerRadius: radius)
+            return Path(roundedRect: rect, cornerRadius: radius)
         }
-        return designPath.applying(VesselCanvas.transform(in: size))
+    }
+
+    func path(in size: CGSize) -> Path {
+        designPath.applying(VesselCanvas.transform(in: size))
     }
 }
 
@@ -41,6 +43,42 @@ private struct VesselSpec {
     var liquidFloor: CGFloat = 160
     let wallWidth: CGFloat
     let referenceWidth: CGFloat
+
+    var visibleBounds: CGRect {
+        var bounds = body.designPath.boundingRect.insetBy(dx: -wallWidth / 2, dy: -wallWidth / 2)
+        for part in filledParts {
+            bounds = bounds.union(part.designPath.boundingRect)
+        }
+        for part in strokeParts {
+            let strokeBounds = part.primitive.designPath.boundingRect.insetBy(
+                dx: -part.width / 2,
+                dy: -part.width / 2
+            )
+            bounds = bounds.union(strokeBounds)
+        }
+        return bounds
+    }
+
+    func interiorWidth(atY y: CGFloat) -> CGFloat {
+        let path = body.designPath
+        let bounds = path.boundingRect
+        guard y >= bounds.minY, y <= bounds.maxY else { return 0 }
+
+        let sampleStep: CGFloat = 0.5
+        var firstInteriorX: CGFloat?
+        var lastInteriorX: CGFloat?
+        var x = bounds.minX
+        while x <= bounds.maxX {
+            if path.contains(CGPoint(x: x, y: y), eoFill: body.evenOdd) {
+                firstInteriorX = firstInteriorX ?? x
+                lastInteriorX = x
+            }
+            x += sampleStep
+        }
+
+        guard let firstInteriorX, let lastInteriorX else { return 0 }
+        return max(0, lastInteriorX - firstInteriorX - wallWidth)
+    }
 }
 
 private enum VesselCanvas {
@@ -65,6 +103,62 @@ private enum VesselCanvas {
         let frame = frame(in: size)
         let scale = scale(in: size)
         return CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: frame.minX, ty: frame.minY)
+    }
+}
+
+enum VesselArtworkFit {
+    case designCanvas
+    case visibleBounds
+}
+
+struct VesselPresentationMetrics {
+    let canvasSize: CGSize
+    let canvasCenter: CGPoint
+    let visibleSize: CGSize
+}
+
+enum VesselPresentationMath {
+    static func metrics(
+        for artworkID: String,
+        in size: CGSize,
+        fit: VesselArtworkFit
+    ) -> VesselPresentationMetrics {
+        let spec = VesselStyleRegistry.spec(for: artworkID)
+        let baseScale = VesselCanvas.scale(in: size)
+        let bounds = spec.visibleBounds
+        let baseVisibleSize = CGSize(width: bounds.width * baseScale, height: bounds.height * baseScale)
+
+        guard fit == .visibleBounds,
+              size.width > 0,
+              size.height > 0,
+              bounds.width > 0,
+              bounds.height > 0,
+              baseScale > 0 else {
+            return VesselPresentationMetrics(
+                canvasSize: size,
+                canvasCenter: CGPoint(x: size.width / 2, y: size.height / 2),
+                visibleSize: baseVisibleSize
+            )
+        }
+
+        let targetScale = min(
+            size.width * 0.82 / bounds.width,
+            size.height * 0.90 / bounds.height
+        )
+        let uniformScale = targetScale / baseScale
+        let targetCenter = CGPoint(x: size.width / 2, y: size.height / 2)
+
+        return VesselPresentationMetrics(
+            canvasSize: CGSize(
+                width: VesselCanvas.designSize.width * baseScale * uniformScale,
+                height: VesselCanvas.designSize.height * baseScale * uniformScale
+            ),
+            canvasCenter: CGPoint(
+                x: targetCenter.x - (bounds.midX - VesselCanvas.designSize.width / 2) * targetScale,
+                y: targetCenter.y - (bounds.midY - VesselCanvas.designSize.height / 2) * targetScale
+            ),
+            visibleSize: CGSize(width: bounds.width * targetScale, height: bounds.height * targetScale)
+        )
     }
 }
 
@@ -383,9 +477,15 @@ private struct FluidFillShape: Shape {
         let top = frame.minY + spec.interiorTop * scale
         let bottom = frame.minY + spec.interiorBottom * scale
         let floor = frame.minY + spec.liquidFloor * scale
-        let baseline = bottom - (bottom - top) * fill
         let amplitude = min((bottom - top) * 0.018, 5) * slosh
         let slopeDelta = tan(slopeDegrees * .pi / 180) * frame.width
+        let baseline = SurfaceBandMath.visualBaseline(
+            interiorTop: top,
+            interiorBottom: bottom,
+            wallWidth: spec.wallWidth * scale,
+            fraction: fill,
+            verticalExcursion: abs(amplitude) + abs(slopeDelta) / 2
+        )
         func surfaceY(_ position: CGFloat) -> CGFloat {
             baseline + (position - 0.5) * slopeDelta
         }
@@ -426,10 +526,26 @@ private struct FluidSurfaceBandShape: Shape {
         let fill = FillAmountMath.clampedFraction(fraction)
         let top = frame.minY + spec.interiorTop * scale
         let bottom = frame.minY + spec.interiorBottom * scale
-        let baseline = bottom - (bottom - top) * fill
         let amplitude = min((bottom - top) * 0.018, 5) * slosh
-        let bandHeight = max(1.5, spec.referenceWidth * relativeHeight * scale)
         let slopeDelta = tan(slopeDegrees * .pi / 180) * frame.width
+        let verticalExcursion = abs(amplitude) + abs(slopeDelta) / 2
+        let baseline = SurfaceBandMath.visualBaseline(
+            interiorTop: top,
+            interiorBottom: bottom,
+            wallWidth: spec.wallWidth * scale,
+            fraction: fill,
+            verticalExcursion: verticalExcursion
+        )
+        let designBaseline = (baseline - frame.minY) / scale
+        let designBandHeight = SurfaceBandMath.volumePreservingHeight(
+            referenceWidth: spec.referenceWidth,
+            relativeHeight: relativeHeight,
+            maximumHeight: max(0, spec.interiorBottom - designBaseline),
+            widthAtDepth: { depth in
+                spec.interiorWidth(atY: designBaseline + depth)
+            }
+        )
+        let bandHeight = max(1.5, designBandHeight * scale)
         func surfaceY(_ position: CGFloat) -> CGFloat {
             baseline + (position - 0.5) * slopeDelta
         }
@@ -459,6 +575,46 @@ private struct FluidSurfaceBandShape: Shape {
         )
         path.closeSubpath()
         return path
+    }
+}
+
+enum SurfaceBandMath {
+    static func visualBaseline(
+        interiorTop: CGFloat,
+        interiorBottom: CGFloat,
+        wallWidth: CGFloat,
+        fraction: Double,
+        verticalExcursion: CGFloat = 0
+    ) -> CGFloat {
+        let fill = FillAmountMath.clampedFraction(fraction)
+        let semanticBaseline = interiorBottom - (interiorBottom - interiorTop) * fill
+        return max(semanticBaseline, interiorTop + wallWidth + max(0, verticalExcursion))
+    }
+
+    static func volumePreservingHeight(
+        referenceWidth: CGFloat,
+        relativeHeight: CGFloat,
+        maximumHeight: CGFloat,
+        widthAtDepth: (CGFloat) -> CGFloat
+    ) -> CGFloat {
+        let targetArea = max(0, referenceWidth) * max(0, referenceWidth * relativeHeight)
+        let availableHeight = max(0, maximumHeight)
+        guard targetArea > 0, availableHeight > 0 else { return 0 }
+
+        let step: CGFloat = 0.25
+        var accumulatedArea: CGFloat = 0
+        var height: CGFloat = 0
+        while height < availableHeight {
+            let sliceHeight = min(step, availableHeight - height)
+            let width = max(0, widthAtDepth(height + sliceHeight / 2))
+            let sliceArea = width * sliceHeight
+            if accumulatedArea + sliceArea >= targetArea, width > 0 {
+                return height + (targetArea - accumulatedArea) / width
+            }
+            accumulatedArea += sliceArea
+            height += sliceHeight
+        }
+        return availableHeight
     }
 }
 
@@ -518,7 +674,7 @@ struct DrinkVisualSpec {
         case "soft-cola": return profile(0x1b120e, 0xb8b193, 0.04, slope: -1.5)
         case "soft-lemonade": return profile(0xf2d16b, 0xf9e9b8, 0.04)
         case "energy-regular": return profile(0xcddc4e)
-        case "energy-sugarfree": return profile(0x7fd8d2)
+        case "energy-sugarfree": return profile(0xcddc4e)
         case "juice-orange": return profile(0xe8a548, 0xf4c886)
         case "juice-apple": return profile(0xd9b45a, 0xefdca3)
         case "milk-dairy": return profile(0xf2ead8)
@@ -562,6 +718,8 @@ struct VesselArtwork: View {
     var showDetails = true
     var surfaceBand: SurfaceBandSpec? = nil
     var showsParticles = false
+    var particleSeed = ""
+    var fit: VesselArtworkFit = .designCanvas
     @State private var slosh = 0.0
     @State private var previousFraction = 0.0
 
@@ -573,11 +731,13 @@ struct VesselArtwork: View {
         GeometryReader { proxy in
             let spec = VesselStyleRegistry.spec(for: style)
             let fraction = FillAmountMath.clampedFraction(fillFraction)
-            let scale = VesselCanvas.scale(in: proxy.size)
+            let presentation = VesselPresentationMath.metrics(for: style, in: proxy.size, fit: fit)
+            let renderSize = presentation.canvasSize
+            let scale = VesselCanvas.scale(in: renderSize)
             let bodyShape = VesselBodyShape(style: style)
             ZStack {
                 ForEach(Array(spec.strokeParts.enumerated()), id: \.offset) { _, part in
-                    part.primitive.path(in: proxy.size)
+                    part.primitive.path(in: renderSize)
                         .stroke(
                             SippedTheme.vessel,
                             style: StrokeStyle(
@@ -589,7 +749,7 @@ struct VesselArtwork: View {
                 }
                 bodyShape.fill(SippedTheme.vessel)
                 ForEach(Array(spec.filledParts.enumerated()), id: \.offset) { _, part in
-                    part.path(in: proxy.size)
+                    part.path(in: renderSize)
                         .fill(SippedTheme.vessel, style: FillStyle(eoFill: part.evenOdd))
                 }
 
@@ -612,19 +772,15 @@ struct VesselArtwork: View {
                             slopeDegrees: surfaceBand.slopeDegrees
                         )
                             .fill(surfaceBand.color)
-                            .mask(
-                                FluidFillShape(
-                                    spec: spec,
-                                    fraction: fraction,
-                                    slosh: motionReduced ? 0 : slosh,
-                                    slopeDegrees: surfaceBand.slopeDegrees
-                                ).fill(.white)
-                            )
                             .mask(bodyShape.fill(.white))
                     }
 
                     if showsParticles, !motionReduced {
-                        BubbleLayer(spec: spec, fraction: fraction)
+                        BubbleLayer(
+                            spec: spec,
+                            fraction: fraction,
+                            phaseOffset: BubbleMotion.phaseOffset(for: particleSeed.isEmpty ? style : particleSeed)
+                        )
                             .mask(
                                 FluidFillShape(
                                     spec: spec,
@@ -642,6 +798,8 @@ struct VesselArtwork: View {
                     style: StrokeStyle(lineWidth: spec.wallWidth * scale, lineJoin: .round)
                 )
             }
+            .frame(width: renderSize.width, height: renderSize.height)
+            .position(presentation.canvasCenter)
             .onAppear { previousFraction = fraction }
             .onChange(of: fraction) { oldValue, newValue in
                 guard !motionReduced, abs(newValue - oldValue) > 0.004 else {
@@ -657,12 +815,14 @@ struct VesselArtwork: View {
             }
             .accessibilityHidden(true)
         }
+        .clipped()
     }
 }
 
 private struct BubbleLayer: View {
     let spec: VesselSpec
     let fraction: Double
+    let phaseOffset: Double
 
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -677,7 +837,7 @@ private struct BubbleLayer: View {
                 let time = timeline.date.timeIntervalSinceReferenceDate
                 for index in 0..<8 {
                     let speed = 0.16 + Double(index % 3) * 0.035
-                    let phase = (time * speed + Double(index) * 0.137).truncatingRemainder(dividingBy: 1)
+                    let phase = (time * speed + Double(index) * 0.137 + phaseOffset).truncatingRemainder(dividingBy: 1)
                     let drift = sin(time * 0.9 + Double(index) * 1.7) * frame.width * 0.035
                     let x = frame.midX + (Double(index % 4) - 1.5) * frame.width * 0.11 + drift
                     let y = bottom - filledHeight * phase
@@ -696,26 +856,62 @@ private struct BubbleLayer: View {
     }
 }
 
+enum BubbleMotion {
+    static func phaseOffset(for seed: String) -> Double {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in seed.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return Double(hash & 0xffff) / Double(UInt16.max)
+    }
+}
+
 struct DrinkArtwork: View {
     let category: DrinkCategory
     let artworkID: String
     var definitionID: String? = nil
     var fillFraction: Double = 0.76
-    var showsParticles = false
+    var showsParticles = true
 
     var visualSpec: DrinkVisualSpec { DrinkVisualSpec.profile(definitionID: definitionID, category: category) }
     var liquidColor: Color { visualSpec.liquid }
+    private var presentation: DrinkArtworkPresentation {
+        DrinkArtworkPresentation.resolve(definitionID: definitionID, category: category)
+    }
 
     var body: some View {
-        VesselArtwork(
-            style: artworkID,
-            liquidColor: visualSpec.liquid,
-            fillFraction: fillFraction,
-            showDetails: true,
-            surfaceBand: visualSpec.band,
-            showsParticles: showsParticles && visualSpec.isCarbonated
-        )
+        ZStack {
+            VesselArtwork(
+                style: artworkID,
+                liquidColor: visualSpec.liquid,
+                fillFraction: presentation == .emptyQuestionMark ? 0 : fillFraction,
+                showDetails: presentation == .filled,
+                surfaceBand: visualSpec.band,
+                showsParticles: presentation == .filled && showsParticles && visualSpec.isCarbonated,
+                particleSeed: definitionID ?? artworkID
+            )
+
+            if presentation == .emptyQuestionMark {
+                Image(systemName: "questionmark")
+                    .resizable()
+                    .scaledToFit()
+                    .fontWeight(.bold)
+                    .foregroundStyle(visualSpec.liquid)
+                    .padding(.horizontal, 38)
+                    .padding(.vertical, 30)
+            }
+        }
         .padding(.horizontal, 4)
         .accessibilityHidden(true)
+    }
+}
+
+enum DrinkArtworkPresentation: Equatable {
+    case filled
+    case emptyQuestionMark
+
+    static func resolve(definitionID: String?, category: DrinkCategory) -> Self {
+        definitionID == "other-custom" && category == .other ? .emptyQuestionMark : .filled
     }
 }

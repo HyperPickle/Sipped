@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \UserPreferences.preferencesID) private var preferences: [UserPreferences]
     let environment: AppEnvironment
     @State private var seedError: String?
@@ -21,6 +22,9 @@ struct RootView: View {
                 ProgressView("Preparing your library")
             }
         }
+        .id(rootPhase)
+        .sippedBlurReplaceTransition()
+        .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.screen, value: rootPhase)
         .tint(SippedTheme.chromeAccent)
         .foregroundStyle(SippedTheme.ink)
         .background(SippedTheme.canvas.ignoresSafeArea())
@@ -29,5 +33,10 @@ struct RootView: View {
             do { try CatalogSeeder.seedIfNeeded(context: modelContext, environment: environment) }
             catch { seedError = error.localizedDescription }
         }
+    }
+
+    private var rootPhase: String {
+        guard let preference = preferences.first else { return seedError == nil ? "loading" : "error" }
+        return preference.onboardingComplete ? "main" : "onboarding"
     }
 }
