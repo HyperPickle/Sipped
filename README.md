@@ -2,8 +2,6 @@
 
 ![Sipped](assets/sipped-hero.png)
 
-<h1 align="center">Sipped</h1>
-
 <p align="center"><strong>A private drink diary that records what you had, without judging what you chose.</strong></p>
 
 <p align="center">Created for the Codex Build Week hackathon.</p>
