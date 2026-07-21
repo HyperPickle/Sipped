@@ -36,6 +36,7 @@ struct LoggingFlowView: View {
     @Query private var usages: [DrinkUsagePreference]
     @Bindable var preferences: UserPreferences
     let environment: AppEnvironment
+    let onComplete: () -> Void
 
     @State private var stage: LoggingStage = .drink
     @State private var direction: LoggingDirection = .forward
@@ -86,7 +87,10 @@ struct LoggingFlowView: View {
                                 preferences: preferences,
                                 environment: environment,
                                 back: { move(to: .container, direction: .backward) },
-                                completion: { dismiss() }
+                                completion: {
+                                    onComplete()
+                                    dismiss()
+                                }
                             )
                             .id(amountSession)
                         }
@@ -599,6 +603,7 @@ private struct AmountStageView: View {
             category: drink.category,
             artworkID: drink.artworkID,
             containerID: container.containerID,
+            containerArtworkID: container.artworkID,
             containerName: container.name,
             containerCapacityML: container.capacityML,
             consumedML: amountML,

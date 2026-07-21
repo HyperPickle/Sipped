@@ -8,7 +8,7 @@
 
 Sipped is an iPhone app for keeping a clear record of what you drink. Pick a drink, choose the container it came in, drag the liquid to the amount you consumed, and save it. Sipped keeps track of fluid, caffeine, sugar, and alcohol in one place.
 
-There are no goals, scores, streaks, coaching messages, or guesses about what is happening inside your body. It is simply a useful record that stays on your phone.
+You can choose a neutral daily fluid goal used only as the fixed 100% scale in History. There are no coaching messages, recommendations, reminders, streaks, scores, or guesses about what is happening inside your body. It is simply a useful record that stays on your phone.
 
 ## How it works
 
@@ -23,7 +23,7 @@ Sipped remembers the container you last used for a saved drink, but it never car
 
 - A Today view with totals for fluid, caffeine, sugar, and alcohol
 - A graph showing how the selected measure changed with each drink
-- A seven-day history with daily records
+- An interactive seven-day history with a configurable fluid scale and selected-day inspector
 - Searchable drink and container libraries with original vessel artwork
 - Custom drinks and containers for the things you use regularly
 - Clear calculation notes on each entry, including raw alcohol inputs where relevant
@@ -61,7 +61,7 @@ The main persisted models are:
 - `ContainerDefinition`: vessel name, capacity, artwork, and compatible categories
 - `DrinkUsagePreference`: the last container used for a saved drink
 - `DrinkLog`: a historical snapshot of the consumed amount and its contributions
-- `UserPreferences`: units, category order, appearance, selected measure, and alcohol standard
+- `UserPreferences`: units, daily fluid goal, category order, appearance, selected measure, and alcohol standard
 
 The product vocabulary and invariants live in [`CONTEXT.md`](CONTEXT.md).
 

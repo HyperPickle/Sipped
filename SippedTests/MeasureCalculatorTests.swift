@@ -27,6 +27,10 @@ final class MeasureCalculatorTests: XCTestCase {
         XCTAssertEqual(SippedMotion.direction(from: 1, to: 1), .forward)
     }
 
+    func testMetricVolumeUsesSIUnitCasing() {
+        XCTAssertEqual(DisplayFormatter.value(537, measure: .fluid, units: .metric), "537 mL")
+    }
+
     func testZeroAndFullContainerAmounts() {
         let drink = DrinkDefinition(name: "Test", category: .water, basis: "Test")
         let zero = MeasureCalculator.contributions(for: drink, volumeML: 0, shots: 1, addedSugarServes: 0, standard: .australia)
@@ -111,5 +115,73 @@ final class MeasureCalculatorTests: XCTestCase {
         )
         XCTAssertEqual(result.rawAlcoholML, 20.25, accuracy: 0.0001)
         XCTAssertEqual(result.standardDrinks, 1.597725, accuracy: 0.000001)
+    }
+
+    func testDailyFluidGoalValidationRejectsMissingInvalidAndNonFiniteValues() {
+        XCTAssertNil(DailyFluidGoalMath.validGoal(nil))
+        XCTAssertNil(DailyFluidGoalMath.validGoal(0))
+        XCTAssertNil(DailyFluidGoalMath.validGoal(-250))
+        XCTAssertNil(DailyFluidGoalMath.validGoal(Double.nan))
+        XCTAssertNil(DailyFluidGoalMath.validGoal(Double.infinity))
+        XCTAssertNil(DailyFluidGoalMath.validGoal(5_001))
+        XCTAssertEqual(DailyFluidGoalMath.validGoal(250), 250)
+        XCTAssertEqual(DailyFluidGoalMath.validGoal(5_000), 5_000)
+    }
+
+    func testDailyFluidGoalEntryClampsToTheValidRange() {
+        XCTAssertEqual(DailyFluidGoalMath.clampedEntry(0), 250)
+        XCTAssertEqual(DailyFluidGoalMath.clampedEntry(-50), 250)
+        XCTAssertEqual(DailyFluidGoalMath.clampedEntry(7_500), 5_000)
+        XCTAssertEqual(DailyFluidGoalMath.clampedEntry(Double.nan), 250)
+        XCTAssertEqual(DailyFluidGoalMath.clampedEntry(0, allowZero: true), 0)
+    }
+
+    func testDailyFluidGoalWheelComposesMetricValuesAndPreservesBounds() {
+        XCTAssertEqual(DailyFluidGoalMath.wheelValue(major: 2, minor: 5, units: .metric), 2_250)
+        XCTAssertEqual(DailyFluidGoalMath.wheelValue(major: 0, minor: 5, units: .metric), 250)
+        XCTAssertEqual(DailyFluidGoalMath.wheelValue(major: 5, minor: 10, units: .metric), 5_000)
+        XCTAssertEqual(DailyFluidGoalMath.wheelValue(major: 0, minor: 0, units: .metric), 0)
+
+        let components = DailyFluidGoalMath.wheelComponents(forMillilitres: 2_250, units: .metric)
+        XCTAssertEqual(components, DailyFluidGoalMath.WheelComponents(major: 2, minor: 5))
+    }
+
+    func testDailyFluidGoalDisablesMillilitresAtFiveLitreMaximum() {
+        XCTAssertTrue(DailyFluidGoalMath.isMinorWheelEnabled(major: 4, units: .metric))
+        XCTAssertFalse(DailyFluidGoalMath.isMinorWheelEnabled(major: 5, units: .metric))
+        XCTAssertTrue(DailyFluidGoalMath.isMinorWheelEnabled(major: 169, units: .imperial))
+    }
+
+    func testDailyFluidGoalWheelComposesImperialValuesAtDisplayPrecision() {
+        let value = DailyFluidGoalMath.wheelValue(major: 67, minor: 6, units: .imperial)
+        XCTAssertEqual(value, 67.6 * DailyFluidGoalMath.millilitresPerFluidOunce, accuracy: 0.0001)
+
+        let components = DailyFluidGoalMath.wheelComponents(forMillilitres: value, units: .imperial)
+        XCTAssertEqual(components, DailyFluidGoalMath.WheelComponents(major: 67, minor: 6))
+    }
+
+    func testDailyFluidGoalUnitConversionRoundTripsMetricAndImperialValues() {
+        XCTAssertEqual(
+            DailyFluidGoalMath.millilitres(forDisplayedValue: 2_000, units: .metric),
+            2_000,
+            accuracy: 0.0001
+        )
+        let ounces = DailyFluidGoalMath.displayedValue(forMillilitres: 2_000, units: .imperial)
+        XCTAssertEqual(ounces, 67.628045, accuracy: 0.0001)
+        XCTAssertEqual(
+            DailyFluidGoalMath.millilitres(forDisplayedValue: ounces, units: .imperial),
+            2_000,
+            accuracy: 0.0001
+        )
+    }
+
+    func testDailyFluidGoalPercentageCapsVisualFillButReportsOverGoalTotal() {
+        XCTAssertEqual(DailyFluidGoalMath.percentage(for: 1_000, goalML: 2_000), 50, accuracy: 0.0001)
+        XCTAssertEqual(DailyFluidGoalMath.cappedFraction(for: 1_000, goalML: 2_000), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(DailyFluidGoalMath.percentage(for: 2_500, goalML: 2_000), 125, accuracy: 0.0001)
+        XCTAssertEqual(DailyFluidGoalMath.cappedFraction(for: 2_500, goalML: 2_000), 1, accuracy: 0.0001)
+        XCTAssertTrue(DailyFluidGoalMath.isOverGoal(totalML: 2_500, goalML: 2_000))
+        XCTAssertNil(DailyFluidGoalMath.percentage(for: 1_000, goalML: 0))
+        XCTAssertNil(DailyFluidGoalMath.cappedFraction(for: 1_000, goalML: -1))
     }
 }

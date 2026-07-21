@@ -226,12 +226,14 @@ final class UserPreferences {
     var selectedMeasureRaw: String
     var appearanceRaw: String
     var alcoholStandardRaw: String
+    var dailyFluidGoalML: Double?
     var catalogSeedVersion: Int = 0
 
     init(preferencesID: String = "primary", onboardingComplete: Bool = false,
          units: DisplayUnits = .metric, preferredCategories: [DrinkCategory] = [.water, .coffee],
          selectedMeasure: MeasureKind = .fluid, appearance: AppearancePreference = .system,
-         alcoholStandard: AlcoholStandard = .australia, catalogSeedVersion: Int = 0) {
+         alcoholStandard: AlcoholStandard = .australia, dailyFluidGoalML: Double? = nil,
+         catalogSeedVersion: Int = 0) {
         self.preferencesID = preferencesID
         self.onboardingComplete = onboardingComplete
         self.unitsRaw = units.rawValue
@@ -239,6 +241,7 @@ final class UserPreferences {
         self.selectedMeasureRaw = selectedMeasure.rawValue
         self.appearanceRaw = appearance.rawValue
         self.alcoholStandardRaw = alcoholStandard.rawValue
+        self.dailyFluidGoalML = dailyFluidGoalML
         self.catalogSeedVersion = catalogSeedVersion
     }
 
@@ -261,6 +264,94 @@ final class UserPreferences {
     var alcoholStandard: AlcoholStandard {
         get { AlcoholStandard(rawValue: alcoholStandardRaw) ?? .australia }
         set { alcoholStandardRaw = newValue.rawValue }
+    }
+
+    var validDailyFluidGoalML: Double? {
+        DailyFluidGoalMath.validGoal(dailyFluidGoalML)
+    }
+}
+
+enum DailyFluidGoalMath {
+    struct WheelComponents: Equatable {
+        let major: Int
+        let minor: Int
+    }
+
+    static let minimumML = 250.0
+    static let maximumML = 5_000.0
+    static let millilitresPerFluidOunce = 29.5735
+    static let metricWheelStepML = 50.0
+
+    static func validGoal(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, (minimumML...maximumML).contains(value) else { return nil }
+        return value
+    }
+
+    static func clampedEntry(_ value: Double, allowZero: Bool = false) -> Double {
+        guard value.isFinite else { return allowZero ? 0 : minimumML }
+        if allowZero, value <= 0 { return 0 }
+        return min(max(value, minimumML), maximumML)
+    }
+
+    static func wheelComponents(forMillilitres value: Double, units: DisplayUnits) -> WheelComponents {
+        let safeValue = value.isFinite ? min(max(value, 0), maximumML) : 0
+        switch units {
+        case .metric:
+            let steps = Int((safeValue / metricWheelStepML).rounded())
+            let stepsPerLitre = Int(1_000 / metricWheelStepML)
+            return WheelComponents(major: steps / stepsPerLitre, minor: steps % stepsPerLitre)
+        case .imperial:
+            let tenths = Int((displayedValue(forMillilitres: safeValue, units: units) * 10).rounded())
+            return WheelComponents(major: tenths / 10, minor: tenths % 10)
+        }
+    }
+
+    static func wheelValue(major: Int, minor: Int, units: DisplayUnits) -> Double {
+        let rawValue: Double
+        switch units {
+        case .metric:
+            rawValue = Double(max(major, 0)) * 1_000 + Double(max(minor, 0)) * metricWheelStepML
+        case .imperial:
+            let fluidOunces = Double(max(major, 0)) + Double(max(minor, 0)) / 10
+            rawValue = millilitres(forDisplayedValue: fluidOunces, units: units)
+        }
+        guard rawValue > 0 else { return 0 }
+        return clampedEntry(rawValue)
+    }
+
+    static func isMinorWheelEnabled(major: Int, units: DisplayUnits) -> Bool {
+        guard units == .metric else { return true }
+        return Double(max(major, 0)) * 1_000 < maximumML
+    }
+
+    static func millilitres(forDisplayedValue value: Double, units: DisplayUnits) -> Double {
+        switch units {
+        case .metric: value
+        case .imperial: value * millilitresPerFluidOunce
+        }
+    }
+
+    static func displayedValue(forMillilitres value: Double, units: DisplayUnits) -> Double {
+        switch units {
+        case .metric: value
+        case .imperial: value / millilitresPerFluidOunce
+        }
+    }
+
+    static func percentage(for totalML: Double, goalML: Double?) -> Double? {
+        guard let goal = validGoal(goalML) else { return nil }
+        let total = totalML.isFinite ? max(0, totalML) : 0
+        return total / goal * 100
+    }
+
+    static func cappedFraction(for totalML: Double, goalML: Double?) -> Double? {
+        guard let percentage = percentage(for: totalML, goalML: goalML) else { return nil }
+        return min(max(percentage / 100, 0), 1)
+    }
+
+    static func isOverGoal(totalML: Double, goalML: Double?) -> Bool {
+        guard let percentage = percentage(for: totalML, goalML: goalML) else { return false }
+        return percentage > 100
     }
 }
 
@@ -307,6 +398,7 @@ final class DrinkLog {
     var categoryRaw: String
     var artworkID: String
     var containerID: String?
+    var containerArtworkID: String?
     var containerName: String
     var containerCapacityML: Double
     var consumedML: Double
@@ -321,7 +413,7 @@ final class DrinkLog {
 
     init(logID: String = UUID().uuidString, loggedAt: Date, orderIndex: Double,
          sourceDefinitionID: String?, drinkName: String, category: DrinkCategory,
-         artworkID: String, containerID: String?, containerName: String,
+         artworkID: String, containerID: String?, containerArtworkID: String? = nil, containerName: String,
          containerCapacityML: Double, consumedML: Double, caffeineMG: Double,
          inherentSugarG: Double, addedSugarG: Double, rawAlcoholML: Double,
          alcoholByVolume: Double, shots: Int, milkType: String, calculationBasis: String) {
@@ -333,6 +425,7 @@ final class DrinkLog {
         self.categoryRaw = category.rawValue
         self.artworkID = artworkID
         self.containerID = containerID
+        self.containerArtworkID = containerArtworkID
         self.containerName = containerName
         self.containerCapacityML = containerCapacityML
         self.consumedML = consumedML

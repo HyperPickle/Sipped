@@ -139,6 +139,47 @@ final class CatalogCoverageTests: XCTestCase {
         XCTAssertEqual(metrics.canvasCenter, CGPoint(x: 60, y: 80))
     }
 
+    func testGalleryBottomBaselineAlignsDifferentShapesAndCapacityScaledArtwork() {
+        let cardHeight: CGFloat = 136
+        let galleryWidth: CGFloat = 156
+        let capacityScale: (Double) -> CGFloat = { capacity in
+            let normalized = sqrt(min(max(capacity, 0), 1_180) / 1_180)
+            return 0.68 + normalized * 0.32
+        }
+        let vessels: [(artworkID: String, scale: CGFloat)] = [
+            ("shot", 1),
+            ("largeBottle", 1),
+            ("mug", 1),
+            ("slimCan", 1),
+            ("flute", 1),
+            ("espresso", capacityScale(90)),
+            ("stanley", capacityScale(1_180))
+        ]
+
+        for vessel in vessels {
+            let artworkHeight = cardHeight * vessel.scale
+            let metrics = VesselPresentationMath.metrics(
+                for: vessel.artworkID,
+                in: CGSize(width: galleryWidth, height: artworkHeight),
+                fit: .bottomBaseline
+            )
+            let cardVisibleBottom = metrics.visibleBottom + (cardHeight - artworkHeight)
+
+            XCTAssertEqual(
+                cardVisibleBottom,
+                cardHeight,
+                accuracy: 0.000_001,
+                "\(vessel.artworkID) should share the gallery card bottom baseline"
+            )
+            XCTAssertEqual(
+                metrics.canvasSize.height,
+                artworkHeight,
+                accuracy: 0.000_001,
+                "Bottom-baseline mode must preserve capacity-based artwork scaling"
+            )
+        }
+    }
+
     func testOtherDrinkIsCustomOnlyAndLegacyPresentationRemainsSupported() {
         XCTAssertFalse(CatalogSeeder.builtInDrinks.contains { $0.definitionID == "other-custom" })
         XCTAssertTrue(CatalogSeeder.retiredDrinkIDs.contains("other-custom"))
@@ -223,7 +264,8 @@ final class CatalogCoverageTests: XCTestCase {
         let historicalLog = DrinkLog(
             logID: "immutable-history", loggedAt: .now, orderIndex: 1,
             sourceDefinitionID: customDrink.definitionID, drinkName: "Saved water", category: .water,
-            artworkID: "glass", containerID: "water-glass", containerName: "Water glass",
+            artworkID: "bottle", containerID: "water-glass", containerArtworkID: "glass",
+            containerName: "Water glass",
             containerCapacityML: 300, consumedML: 225, caffeineMG: 0,
             inherentSugarG: 0, addedSugarG: 0, rawAlcoholML: 0,
             alcoholByVolume: 0, shots: 0, milkType: "", calculationBasis: "Original snapshot"
@@ -258,6 +300,8 @@ final class CatalogCoverageTests: XCTestCase {
             context.fetch(FetchDescriptor<DrinkLog>()).first { $0.logID == "immutable-history" }
         )
         XCTAssertEqual(savedLog.containerID, "water-glass")
+        XCTAssertEqual(savedLog.containerArtworkID, "glass")
+        XCTAssertEqual(savedLog.resolvedContainerArtworkID, "glass")
         XCTAssertEqual(savedLog.containerName, "Water glass")
         XCTAssertEqual(savedLog.containerCapacityML, 300)
         XCTAssertEqual(savedLog.consumedML, 225)

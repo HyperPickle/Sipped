@@ -9,12 +9,30 @@ final class SippedAcceptanceTests: XCTestCase {
         app = XCUIApplication()
     }
 
+    func testFirstLaunchLandingBeginsOnboarding() {
+        launch(skipOnboarding: false)
+
+        XCTAssertTrue(app.staticTexts["Sipped"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["A clear record of what you drink."].exists)
+        XCTAssertFalse(app.staticTexts["See what each drink contains"].exists)
+
+        let getStarted = app.buttons["landing.getStarted"]
+        XCTAssertTrue(getStarted.exists)
+        assertMinimumTouchTarget(getStarted)
+        getStarted.tap()
+
+        XCTAssertTrue(app.staticTexts["See what each drink contains"].waitForExistence(timeout: 3))
+    }
+
     func testOnboardingExplainsMeasuresUnitsAndCategories() {
         launch(skipOnboarding: false)
-        XCTAssertTrue(app.staticTexts["Every drink, clearly recorded"].waitForExistence(timeout: 5))
+        beginOnboarding()
         for measure in ["Fluid", "Caffeine", "Sugar", "Alcohol"] { XCTAssertTrue(app.staticTexts[measure].exists) }
         app.buttons["onboarding.continue"].tap()
         app.buttons["units.imperial"].tap()
+        app.buttons["onboarding.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Set a daily fluid goal"].waitForExistence(timeout: 3))
+        setGoal("67.6")
         app.buttons["onboarding.continue"].tap()
         app.buttons["onboarding.category.coffee"].tap()
         app.buttons["onboarding.finish"].tap()
@@ -40,6 +58,23 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 3))
         XCTAssertEqual(add.frame.width, add.frame.height, accuracy: 1)
         XCTAssertGreaterThanOrEqual(add.frame.width, 44)
+    }
+
+    func testLoggingFromHistoryReturnsToToday() {
+        launch(seedHistory: true, extraArguments: ["--start-tab=history"])
+        XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 3))
+
+        app.buttons["global.add"].tap()
+        app.buttons["drink.water-still"].tap()
+        selectContainer("glass")
+        enterAmount("250")
+        tapWhenHittable(app.buttons["logger.confirm"])
+
+        XCTAssertTrue(app.staticTexts["TODAY"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["tab.today"].exists)
+        let fluidTotal = element("today.total.fluid")
+        XCTAssertTrue(fluidTotal.waitForExistence(timeout: 3))
+        XCTAssertTrue(fluidTotal.label.contains("1.25 L"))
     }
 
     func testAnimatedTabTransitionsRemainInterruptible() {
@@ -190,14 +225,6 @@ final class SippedAcceptanceTests: XCTestCase {
             x: (libraryTab.frame.maxX + addButton.frame.minX) / 2,
             y: addButton.frame.midY
         )
-        let dayRows = app.buttons.matching(NSPredicate(format: "label CONTAINS 'drink'"))
-        let coveredRow = (0..<dayRows.count)
-            .map { dayRows.element(boundBy: $0) }
-            .first { row in
-                row.identifier != "global.add" && row.frame.contains(gapPoint)
-            }
-        XCTAssertNotNil(coveredRow, "Expected a history row beneath the bottom chrome gap")
-
         app.coordinate(withNormalizedOffset: CGVector(
             dx: gapPoint.x / app.frame.width,
             dy: gapPoint.y / app.frame.height
@@ -212,7 +239,7 @@ final class SippedAcceptanceTests: XCTestCase {
     func testHistoryCanScrollItsLastDayAboveTheFloatingChrome() {
         launch(seedHistory: true, extraArguments: ["--start-tab=history"])
 
-        let lastDay = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Friday 10 Jul'")).firstMatch
+        let lastDay = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'history.day.' AND label CONTAINS '10 Jul'")).firstMatch
         XCTAssertTrue(lastDay.waitForExistence(timeout: 3))
         for _ in 0..<8 { app.swipeUp() }
 
@@ -229,7 +256,15 @@ final class SippedAcceptanceTests: XCTestCase {
 
     func testTodayEmptyStateHasOneCTAAndRevealsAnalyticsAfterFirstLog() {
         launch()
+        let emptyCTA = app.buttons["today.empty.add"]
         XCTAssertEqual(app.buttons.matching(identifier: "today.empty.add").count, 1)
+        let titleRange = emptyCTA.label.range(of: "Log a drink")
+        let messageRange = emptyCTA.label.range(of: "Your drink record starts here")
+        XCTAssertNotNil(titleRange)
+        XCTAssertNotNil(messageRange)
+        if let titleRange, let messageRange {
+            XCTAssertLessThan(titleRange.lowerBound, messageRange.lowerBound)
+        }
         XCTAssertFalse(app.buttons["measure.fluid"].exists)
         XCTAssertFalse(element("today.graph.fluid").exists)
         XCTAssertFalse(app.staticTexts["Drinks"].exists)
@@ -252,6 +287,47 @@ final class SippedAcceptanceTests: XCTestCase {
         XCTAssertTrue(element("settings.alcoholStandard").exists)
         XCTAssertTrue(app.staticTexts["This changes ordering only. Every category remains searchable."].exists)
         XCTAssertFalse(app.images["globe.asia.australia.fill"].exists)
+    }
+
+    func testDailyGoalOnboardingHidesContinueUntilAValidSelection() {
+        launch(skipOnboarding: false)
+        beginOnboarding()
+        app.buttons["onboarding.continue"].tap()
+        app.buttons["onboarding.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Set a daily fluid goal"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["onboarding.continue"].isHittable)
+
+        let litresWheel = app.pickerWheels.element(boundBy: 0)
+        XCTAssertTrue(litresWheel.waitForExistence(timeout: 3))
+        litresWheel.adjust(toPickerWheelValue: "2")
+        XCTAssertTrue(app.buttons["onboarding.continue"].isHittable)
+
+        litresWheel.adjust(toPickerWheelValue: "5")
+        let millilitresWheel = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(millilitresWheel.exists)
+        XCTAssertFalse(millilitresWheel.isEnabled)
+        XCTAssertTrue(app.staticTexts["5 L is the maximum daily goal."].exists)
+    }
+
+    func testExistingUserWithoutGoalGetsOneTimeGoalSetup() {
+        launch(skipOnboarding: false, extraArguments: ["--goal-setup-only"])
+        XCTAssertTrue(app.staticTexts["Set a daily fluid goal"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["landing.getStarted"].exists)
+        XCTAssertFalse(app.staticTexts["See what each drink contains"].exists)
+        setGoal("2000")
+        app.buttons["onboarding.continue"].tap()
+        XCTAssertTrue(app.staticTexts["TODAY"].waitForExistence(timeout: 4))
+    }
+
+    func testSettingsCanEditDailyFluidGoal() {
+        launch(extraArguments: ["--open-settings"])
+        let goal = app.buttons["settings.dailyFluidGoal"]
+        XCTAssertTrue(goal.waitForExistence(timeout: 3))
+        goal.tap()
+        XCTAssertTrue(app.staticTexts["Set a daily fluid goal"].waitForExistence(timeout: 3))
+        setGoal("2500")
+        app.buttons["settings.saveGoal"].tap()
+        XCTAssertTrue(app.buttons["settings.dailyFluidGoal"].label.contains("2.5 L"))
     }
 
     func testGenericDrinkStartsAtZeroAndLogsWithOneConfirmation() {
@@ -431,17 +507,45 @@ final class SippedAcceptanceTests: XCTestCase {
         tapWhenHittable(app.buttons["settings.deleteAll"])
         XCTAssertTrue(app.staticTexts["Delete all Sipped data?"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'permanently deleted' AND label CONTAINS 'onboarding'" )).firstMatch.exists)
+        let sheet = app.sheets.firstMatch
+        let content = element("settings.deleteAllContent")
+        XCTAssertTrue(content.exists)
+        XCTAssertGreaterThanOrEqual(content.frame.minY - sheet.frame.minY, 20)
+        XCTAssertLessThanOrEqual(sheet.frame.maxY - content.frame.maxY, 70)
         tapLast(app.buttons.matching(identifier: "settings.confirmDeleteAll"))
-        XCTAssertTrue(app.staticTexts["Every drink, clearly recorded"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["A clear record of what you drink."].waitForExistence(timeout: 4))
+        beginOnboarding()
     }
 
     func testSevenDayHistoryAndDayDetail() {
         launch(seedHistory: true)
         app.buttons["tab.history"].tap()
         XCTAssertTrue(element("history.graph").waitForExistence(timeout: 3))
-        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'drink'")).count, 7)
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Today,'")).firstMatch.tap()
+        XCTAssertFalse(app.staticTexts["Daily record"].exists)
+        XCTAssertGreaterThanOrEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'history.day.'")).count, 7)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'selected'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons["history.viewDrinks"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["history.viewDrinks"].descendants(matching: .image).count, 0)
+        app.buttons["history.viewDrinks"].tap()
+        XCTAssertFalse(element("history.inspector.fluid").exists)
         XCTAssertTrue(app.staticTexts["Red Wine"].waitForExistence(timeout: 3))
+    }
+
+    func testHistorySelectionUpdatesInspectorAndEmptyDayHasNoNavigationCTA() {
+        launch(seedHistory: true, extraArguments: ["--start-tab=history"])
+        XCTAssertTrue(element("history.inspector").waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["50% of goal"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["1.0 L"].waitForExistence(timeout: 3))
+
+        let selectableDays = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'history.day.'"))
+        XCTAssertGreaterThanOrEqual(selectableDays.count, 7)
+        selectableDays.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["No drinks recorded"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["history.viewDrinks"].exists)
+
+        launch(seedHistory: true, extraArguments: ["--start-tab=history", "--seed-overgoal"])
+        XCTAssertTrue(app.staticTexts["125% of goal"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["2.5 L"].waitForExistence(timeout: 3))
     }
 
     func testLibrarySearchContainerGalleryAndSavedDrinkSnapshot() {
@@ -532,20 +636,68 @@ final class SippedAcceptanceTests: XCTestCase {
         try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
     }
 
+    func testCaptureGalleryArtworkBaselinesAcrossLayouts() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SippedGalleryArtworkBaselines", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let layouts: [(name: String, arguments: [String])] = [
+            ("normal", []),
+            (
+                "accessibility",
+                [
+                    "-UIPreferredContentSizeCategoryName",
+                    "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+                ]
+            )
+        ]
+
+        for layout in layouts {
+            launch(seedHistory: true, extraArguments: ["--start-tab=library"] + layout.arguments)
+            XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+            captureGolden("\(layout.name)-library-drink-cards", in: directory)
+
+            app.segmentedControls.firstMatch.buttons["Containers"].tap()
+            XCTAssertTrue(app.buttons["container.glass"].waitForExistence(timeout: 5))
+            captureGolden("\(layout.name)-library-container-cards", in: directory)
+
+            launch(extraArguments: ["--open-logger"] + layout.arguments)
+            XCTAssertTrue(app.staticTexts["Choose a drink"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["drink.water-still"].waitForExistence(timeout: 5))
+            captureGolden("\(layout.name)-logging-drink-cards", in: directory)
+
+            tapWhenHittable(app.buttons["drink.water-still"])
+            XCTAssertTrue(app.staticTexts["Choose a container"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["container.glass"].exists)
+            captureGolden("\(layout.name)-logging-container-cards", in: directory)
+        }
+
+        try Data("complete".utf8).write(to: directory.appendingPathComponent("COMPLETE"), options: .atomic)
+    }
+
     func testCaptureCompleteRedesignInventory() throws {
         try resetInventoryDirectory()
 
         launch(skipOnboarding: false)
-        waitForText("Every drink, clearly recorded")
+        waitForText("A clear record of what you drink.")
+        capture("00-first-launch-landing")
+        beginOnboarding()
+        waitForText("See what each drink contains")
         capture("01-onboarding-measures")
         app.buttons["onboarding.continue"].tap()
-        waitForText("Amounts that feel familiar")
+        waitForText("Choose your units")
         capture("02-onboarding-units-metric")
         app.buttons["units.imperial"].tap()
         capture("03-onboarding-units-imperial")
         app.buttons["onboarding.continue"].tap()
-        waitForText("Put your favourites first")
-        capture("04-onboarding-categories")
+        waitForText("Set a daily fluid goal")
+        setGoal("67.6")
+        capture("04-onboarding-goal")
+        app.buttons["onboarding.continue"].tap()
+        waitForText("Choose your drink types")
+        capture("05-onboarding-categories")
 
         launch()
         XCTAssertTrue(app.buttons["global.add"].waitForExistence(timeout: 5))
@@ -722,9 +874,12 @@ final class SippedAcceptanceTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         launch(skipOnboarding: false)
+        beginOnboarding()
         app.buttons["onboarding.continue"].tap()
         app.buttons["onboarding.continue"].tap()
-        XCTAssertTrue(app.staticTexts["Put your favourites first"].waitForExistence(timeout: 3))
+        setGoal("2000")
+        app.buttons["onboarding.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Choose your drink types"].waitForExistence(timeout: 3))
         app.buttons["onboarding.category.coffee"].tap()
         stableCapture("onboarding-categories-light", in: directory)
 
@@ -862,11 +1017,21 @@ final class SippedAcceptanceTests: XCTestCase {
     private func launch(skipOnboarding: Bool = true, seedHistory: Bool = false, extraArguments: [String] = []) {
         if app.state != .notRunning { app.terminate() }
         var arguments = ["--ui-testing", "--now=2026-07-16T02:00:00Z", "--region=AU"]
-        if skipOnboarding { arguments.append("--skip-onboarding") }
+        if skipOnboarding {
+            arguments.append("--skip-onboarding")
+            arguments.append("--daily-fluid-goal=2000")
+        }
         if seedHistory { arguments.append("--seed-history") }
         arguments.append(contentsOf: extraArguments)
         app.launchArguments = arguments
         app.launch()
+    }
+
+    private func beginOnboarding() {
+        let getStarted = app.buttons["landing.getStarted"]
+        XCTAssertTrue(getStarted.waitForExistence(timeout: 5))
+        tapWhenHittable(getStarted)
+        XCTAssertTrue(app.staticTexts["See what each drink contains"].waitForExistence(timeout: 3))
     }
 
     private func openDrink(_ identifier: String) {
@@ -898,6 +1063,23 @@ final class SippedAcceptanceTests: XCTestCase {
         let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
         _ = XCTWaiter.wait(for: [hidden], timeout: 3)
         RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+    }
+
+    private func setGoal(_ value: String) {
+        tapWhenHittable(app.buttons["onboarding.goal.value"])
+        let field = app.textFields["onboarding.goal.input"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        tapWhenHittable(field)
+        field.press(forDuration: 0.7)
+        if app.menuItems["Select All"].waitForExistence(timeout: 1) { app.menuItems["Select All"].tap() }
+        field.typeText(value)
+        app.keyboards.buttons["Done"].tapIfExists()
+        app.buttons["keyboard.done"].tapIfExists()
+        app.buttons["Done"].tapIfExists()
+        let keyboard = app.keyboards.firstMatch
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
+        _ = XCTWaiter.wait(for: [hidden], timeout: 3)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
     }
 
     private func setFill(_ fill: XCUIElement, to fraction: Double) {

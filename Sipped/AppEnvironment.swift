@@ -5,6 +5,8 @@ struct AppEnvironment {
     let calendar: Calendar
     let regionCode: String
     let forceOnboardingComplete: Bool?
+    let forcedDailyFluidGoalML: Double?
+    let forceGoalSetupOnly: Bool
 
     static var live: AppEnvironment {
         let arguments = ProcessInfo.processInfo.arguments
@@ -23,8 +25,14 @@ struct AppEnvironment {
             .flatMap { $0.split(separator: "=", maxSplits: 1).last.map(String.init) }
             ?? Locale.current.region?.identifier ?? "AU"
 
-        let onboarding: Bool? = arguments.contains("--skip-onboarding") ? true : nil
-        return AppEnvironment(now: now, calendar: calendar, regionCode: region, forceOnboardingComplete: onboarding)
+        let goalSetupOnly = arguments.contains("--goal-setup-only")
+        let onboarding: Bool? = arguments.contains("--skip-onboarding") || goalSetupOnly ? true : nil
+        let forcedGoal = arguments.first(where: { $0.hasPrefix("--daily-fluid-goal=") })
+            .flatMap { $0.split(separator: "=", maxSplits: 1).last.flatMap { Double($0) } }
+        return AppEnvironment(now: now, calendar: calendar, regionCode: region,
+                              forceOnboardingComplete: onboarding,
+                              forcedDailyFluidGoalML: forcedGoal,
+                              forceGoalSetupOnly: goalSetupOnly)
     }
 
     func startOfDay(_ date: Date) -> Date { calendar.startOfDay(for: date) }
@@ -37,4 +45,3 @@ struct AppEnvironment {
         calendar.isDate(date, inSameDayAs: other)
     }
 }
-

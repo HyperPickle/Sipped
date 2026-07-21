@@ -14,6 +14,13 @@ struct HistoryView: View {
     @Bindable var preferences: UserPreferences
     let environment: AppEnvironment
     @State private var showingSettings = false
+    @State private var selectedDayDate: Date
+
+    init(preferences: UserPreferences, environment: AppEnvironment) {
+        self.preferences = preferences
+        self.environment = environment
+        _selectedDayDate = State(initialValue: environment.startOfDay(environment.now))
+    }
 
     private var days: [HistoryDay] {
         (0..<7).reversed().map { offset in
@@ -23,6 +30,10 @@ struct HistoryView: View {
         }
     }
 
+    private var selectedDay: HistoryDay {
+        days.first(where: { environment.isDate($0.date, inSameDayAs: selectedDayDate) }) ?? days.last!
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -30,12 +41,7 @@ struct HistoryView: View {
                     Text("A calm view of the last seven days").font(.subheadline).foregroundStyle(SippedTheme.secondaryInk)
                     MeasureSelector(selection: Binding(get: { preferences.selectedMeasure }, set: { preferences.selectedMeasure = $0; try? modelContext.save() }))
                     historyChart
-                    SippedSectionHeading(eyebrow: nil, title: "Daily record")
-                    LazyVStack(spacing: 10) {
-                        ForEach(days.reversed()) { day in
-                            NavigationLink { HistoryDayDetail(day: day, preferences: preferences) } label: { HistoryDayRow(day: day, preferences: preferences, isToday: environment.isDate(day.date, inSameDayAs: environment.now)) }.buttonStyle(.plain)
-                        }
-                    }
+                    selectedDayInspector
                 }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
@@ -48,16 +54,43 @@ struct HistoryView: View {
 
     private var historyChart: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Seven-day \(preferences.selectedMeasure.name.lowercased())", systemImage: preferences.selectedMeasure.symbol).font(.headline).foregroundStyle(preferences.selectedMeasure.color)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label("Seven-day \(preferences.selectedMeasure.name.lowercased())", systemImage: preferences.selectedMeasure.symbol)
+                    .font(.headline)
+                    .foregroundStyle(preferences.selectedMeasure.color)
+                Spacer()
+                if preferences.selectedMeasure == .fluid, let goal = preferences.validDailyFluidGoalML {
+                    Text("Goal \(DisplayFormatter.volume(goal, units: preferences.units))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(SippedTheme.secondaryInk)
+                        .lineLimit(1)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .glassEffect(.regular, in: .capsule)
+                }
+            }
             LiquidColumnsChart(
                 columns: days.map { day in
-                    LiquidColumn(id: day.date,
-                                 label: day.date.formatted(.dateTime.weekday(.narrow)),
-                                 value: day.totals.value(for: preferences.selectedMeasure),
-                                 isToday: environment.isDate(day.date, inSameDayAs: environment.now))
+                    let isToday = environment.isDate(day.date, inSameDayAs: environment.now)
+                    let value = day.totals.value(for: preferences.selectedMeasure)
+                    let percentage = preferences.selectedMeasure == .fluid
+                        ? DailyFluidGoalMath.percentage(for: day.totals.fluidML, goalML: preferences.validDailyFluidGoalML)
+                        : nil
+                    return LiquidColumn(id: day.date,
+                                        label: day.date.formatted(.dateTime.weekday(.narrow)),
+                                        value: value,
+                                        isToday: isToday,
+                                        percentage: percentage,
+                                        isOverGoal: percentage.map { $0 > 100 } ?? false,
+                                        accessibilityDateLabel: isToday
+                                            ? "Today"
+                                            : day.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
                 },
                 color: preferences.selectedMeasure.color,
-                valueLabel: { DisplayFormatter.value($0, measure: preferences.selectedMeasure, units: preferences.units) })
+                valueLabel: { DisplayFormatter.value($0, measure: preferences.selectedMeasure, units: preferences.units) },
+                scaleMaximum: preferences.selectedMeasure == .fluid ? preferences.validDailyFluidGoalML : nil,
+                selectedID: selectedDay.date,
+                onSelect: { selectedDayDate = $0 })
             .id(preferences.selectedMeasure)
             .sippedBlurReplaceTransition()
             .frame(height: 190).accessibilityIdentifier("history.graph")
@@ -65,34 +98,68 @@ struct HistoryView: View {
         .padding(16)
         .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
-}
 
-private struct HistoryDayRow: View {
-    let day: HistoryDay
-    let preferences: UserPreferences
-    let isToday: Bool
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack { Text(isToday ? "Today" : day.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))).font(.headline); Spacer(); Text("\(day.logs.count) drink\(day.logs.count == 1 ? "" : "s")").font(.caption).foregroundStyle(SippedTheme.secondaryInk); Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(SippedTheme.secondaryInk) }
-            HStack(spacing: 8) {
+    private var selectedDayInspector: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(environment.isDate(selectedDay.date, inSameDayAs: environment.now) ? "Today" : selectedDay.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
+                        .font(.title3.weight(.bold))
+                        .accessibilityIdentifier("history.selectedDay")
+                    Text("\(selectedDay.logs.count) recorded drink\(selectedDay.logs.count == 1 ? "" : "s")")
+                        .font(.subheadline)
+                        .foregroundStyle(SippedTheme.secondaryInk)
+                }
+                Spacer()
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(MeasureKind.allCases) { measure in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
-                        SippedAnimatedNumericText(
-                            text: DisplayFormatter.value(
-                                day.totals.value(for: measure),
-                                measure: measure,
-                                units: preferences.units
-                            )
-                        )
-                            .font(.caption2.bold())
-                            .lineLimit(1).minimumScaleFactor(0.55)
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(measure.name, systemImage: measure.symbol)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(measure.color)
+                        Text(DisplayFormatter.value(selectedDay.totals.value(for: measure), measure: measure, units: preferences.units))
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        if measure == .fluid,
+                           let percentage = DailyFluidGoalMath.percentage(for: selectedDay.totals.fluidML, goalML: preferences.validDailyFluidGoalML) {
+                            Text("\(percentage.formatted(.number.precision(.fractionLength(0...1))))% of goal")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(selectedDay.totals.fluidML > (preferences.validDailyFluidGoalML ?? .greatestFiniteMagnitude) ? .orange : SippedTheme.secondaryInk)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("history.inspector.\(measure.rawValue)")
                 }
             }
+
+            if selectedDay.logs.isEmpty {
+                Text("No drinks recorded")
+                    .font(.subheadline)
+                    .foregroundStyle(SippedTheme.secondaryInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("history.inspector.empty")
+            } else {
+                NavigationLink {
+                    HistoryDayDetail(day: selectedDay, preferences: preferences)
+                } label: {
+                    Text("View drinks")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(SippedTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .accessibilityIdentifier("history.viewDrinks")
+            }
         }
-        .padding(14)
-        .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(16)
+        .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityIdentifier("history.inspector")
     }
 }
 
@@ -105,26 +172,6 @@ private struct HistoryDayDetail: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                HStack(spacing: 6) {
-                    ForEach(MeasureKind.allCases) { measure in
-                        VStack(spacing: 5) {
-                            Image(systemName: measure.symbol).font(.caption).foregroundStyle(measure.color)
-                            SippedAnimatedNumericText(
-                                text: DisplayFormatter.value(
-                                    day.totals.value(for: measure),
-                                    measure: measure,
-                                    units: preferences.units
-                                )
-                            )
-                                .font(.caption2.bold())
-                                .lineLimit(1).minimumScaleFactor(0.55)
-                            Text(measure.name).font(.caption2).foregroundStyle(SippedTheme.secondaryInk)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 62)
-                    }
-                }
-                .padding(10)
-                .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 if day.logs.isEmpty { ContentUnavailableView("No drinks recorded", systemImage: "cup.and.saucer") }
                 ForEach(day.logs.reversed()) { log in Button { selectedLog = log } label: { LogEntryRow(log: log, preferences: preferences) }.buttonStyle(.plain) }
             }.padding(16)

@@ -43,6 +43,16 @@ enum CatalogSeeder {
             context.insert(preferences)
         }
 
+        if let forcedGoal = environment.forcedDailyFluidGoalML {
+            preferences.dailyFluidGoalML = DailyFluidGoalMath.clampedEntry(forcedGoal)
+        } else if environment.forceOnboardingComplete == true,
+                  !environment.forceGoalSetupOnly,
+                  preferences.validDailyFluidGoalML == nil {
+            // UI fixtures bypass onboarding, so they need an explicit, stable
+            // scale for the History fluid chart.
+            preferences.dailyFluidGoalML = 2_000
+        }
+
         try upgradeReferenceCatalog(context: context, fromVersion: preferences.catalogSeedVersion)
         preferences.catalogSeedVersion = currentSeedVersion
 
@@ -204,11 +214,59 @@ enum CatalogSeeder {
                                                          standard: .australia)
             context.insert(DrinkLog(logID: "seed-\(id)", loggedAt: date, orderIndex: date.timeIntervalSinceReferenceDate,
                                     sourceDefinitionID: drink.definitionID, drinkName: drink.name, category: drink.category,
-                                    artworkID: drink.artworkID, containerID: container.containerID, containerName: container.name,
+                                    artworkID: drink.artworkID, containerID: container.containerID,
+                                    containerArtworkID: container.artworkID, containerName: container.name,
                                     containerCapacityML: container.capacityML, consumedML: volume, caffeineMG: values.caffeineMG,
                                     inherentSugarG: values.inherentSugarG, addedSugarG: values.addedSugarG,
                                     rawAlcoholML: values.rawAlcoholML, alcoholByVolume: drink.defaultABV,
                                     shots: drink.category == .coffee ? 2 : 1, milkType: "", calculationBasis: drink.basis))
+        }
+
+        // Keep the deterministic History fixture useful for goal-scale
+        // acceptance checks: today's three entries total exactly 1,000 ml.
+        if let drink = drinks.first(where: { $0.definitionID == "water-still" }),
+           let container = containers.first(where: { $0.containerID == "large-bottle" }) {
+            let volume = 650.0
+            let values = MeasureCalculator.contributions(for: drink, volumeML: volume, shots: 1,
+                                                         addedSugarServes: 0, standard: .australia)
+            let date = environment.now.addingTimeInterval(-120)
+            context.insert(DrinkLog(logID: "seed-fluid-today", loggedAt: date,
+                                    orderIndex: date.timeIntervalSinceReferenceDate,
+                                    sourceDefinitionID: drink.definitionID, drinkName: drink.name,
+                                    category: drink.category, artworkID: drink.artworkID,
+                                    containerID: container.containerID, containerArtworkID: container.artworkID,
+                                    containerName: container.name,
+                                    containerCapacityML: container.capacityML, consumedML: volume,
+                                    caffeineMG: values.caffeineMG, inherentSugarG: values.inherentSugarG,
+                                    addedSugarG: values.addedSugarG, rawAlcoholML: values.rawAlcoholML,
+                                    alcoholByVolume: drink.defaultABV, shots: 1, milkType: "",
+                                    calculationBasis: drink.basis))
+
+            if ProcessInfo.processInfo.arguments.contains("--seed-overgoal") {
+                for index in 1...2 {
+                    let overGoalVolume = 750.0
+                    let overGoalValues = MeasureCalculator.contributions(
+                        for: drink, volumeML: overGoalVolume, shots: 1,
+                        addedSugarServes: 0, standard: .australia
+                    )
+                    let overGoalDate = environment.now.addingTimeInterval(Double(index) * 90)
+                    context.insert(DrinkLog(
+                        logID: "seed-overgoal-\(index)", loggedAt: overGoalDate,
+                        orderIndex: overGoalDate.timeIntervalSinceReferenceDate,
+                        sourceDefinitionID: drink.definitionID, drinkName: drink.name,
+                        category: drink.category, artworkID: drink.artworkID,
+                        containerID: container.containerID, containerArtworkID: container.artworkID,
+                        containerName: container.name,
+                        containerCapacityML: container.capacityML, consumedML: overGoalVolume,
+                        caffeineMG: overGoalValues.caffeineMG,
+                        inherentSugarG: overGoalValues.inherentSugarG,
+                        addedSugarG: overGoalValues.addedSugarG,
+                        rawAlcoholML: overGoalValues.rawAlcoholML,
+                        alcoholByVolume: drink.defaultABV, shots: 1, milkType: "",
+                        calculationBasis: drink.basis
+                    ))
+                }
+            }
         }
         let custom = DrinkDefinition(definitionID: "test-regular", name: "Morning Regular", category: .coffee,
                                      artworkID: "mug", caffeinePerShot: 63, sugarPer100ML: 4.7,
@@ -222,7 +280,8 @@ enum CatalogSeeder {
             let date = environment.now.addingTimeInterval(60)
             context.insert(DrinkLog(logID: "seed-regular", loggedAt: date, orderIndex: date.timeIntervalSinceReferenceDate,
                                     sourceDefinitionID: custom.definitionID, drinkName: custom.name, category: custom.category,
-                                    artworkID: custom.artworkID, containerID: mug.containerID, containerName: mug.name,
+                                    artworkID: custom.artworkID, containerID: mug.containerID,
+                                    containerArtworkID: mug.artworkID, containerName: mug.name,
                                     containerCapacityML: mug.capacityML, consumedML: volume, caffeineMG: values.caffeineMG,
                                     inherentSugarG: values.inherentSugarG, addedSugarG: values.addedSugarG,
                                     rawAlcoholML: 0, alcoholByVolume: 0, shots: 2, milkType: "Oat",

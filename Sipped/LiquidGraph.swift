@@ -1,9 +1,9 @@
 import SwiftUI
 
 // Custom liquid-themed replacements for the generic Swift Charts graphs.
-// ReservoirGraph shows today's cumulative intake as a liquid level rising
+// ReservoirGraph shows today's cumulative intake as a static liquid level
 // through the day; LiquidColumnsChart shows the last seven days as glass
-// columns. Both animate a gentle surface wave unless Reduce Motion is on.
+// columns with motion disabled when Reduce Motion is on.
 
 private enum LiquidMotion {
     static func surfaceOffset(x: CGFloat, time: TimeInterval, amplitude: CGFloat) -> CGFloat {
@@ -31,8 +31,9 @@ struct ReservoirPoint: Identifiable, Equatable {
     let id: String
     let time: Date
     let level: Double
-    let tint: Color
-    let symbol: String
+    let category: DrinkCategory
+    let artworkID: String
+    let definitionID: String?
 }
 
 struct ReservoirGraph: View {
@@ -41,19 +42,24 @@ struct ReservoirGraph: View {
     let color: Color
     let valueLabel: (Double) -> String
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = Date.distantPast
-
     private var sortedPoints: [ReservoirPoint] { points.sorted { $0.time < $1.time } }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { timeline in
-            Canvas { context, size in
-                draw(in: &context, size: size, at: timeline.date)
+        Canvas { context, size in
+            draw(in: &context, size: size)
+        } symbols: {
+            ForEach(points) { point in
+                DrinkArtwork(
+                    category: point.category,
+                    artworkID: point.artworkID,
+                    definitionID: point.definitionID,
+                    showsParticles: false,
+                    fit: .visibleBounds
+                )
+                .frame(width: 18, height: 22)
+                .tag(point.id)
             }
         }
-        .onAppear { appeared = .now }
-        .onChange(of: points) { appeared = .now }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
     }
@@ -63,16 +69,13 @@ struct ReservoirGraph: View {
         return "Level rose to \(valueLabel(last.level)) across \(sortedPoints.count) drink\(sortedPoints.count == 1 ? "" : "s") today"
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize, at frameTime: Date) {
+    private func draw(in context: inout GraphicsContext, size: CGSize) {
         let points = sortedPoints
         guard let first = points.first, let last = points.last else { return }
         let bottomGutter: CGFloat = 20
         let topPad: CGFloat = 16
         let plot = CGRect(x: 0, y: topPad, width: size.width, height: size.height - topPad - bottomGutter)
         guard plot.height > 20, plot.width > 40 else { return }
-
-        let progress = reduceMotion ? 1 : LiquidMotion.riseProgress(since: appeared, at: frameTime)
-        let wavePhase = reduceMotion ? 0 : frameTime.timeIntervalSinceReferenceDate
 
         // Time domain: first drink to now (or the last drink if it is later),
         // with a small lead-in so the first rise is visible.
@@ -109,15 +112,9 @@ struct ReservoirGraph: View {
             return previousLevel
         }
 
-        // Keep the home graph's ambient motion subtle while preserving its organic shape.
-        let amplitude = min(4, plot.height * 0.035) * 0.65
         func surfaceY(atX x: CGFloat) -> CGFloat {
             let date = domainStart.addingTimeInterval(TimeInterval(x / plot.width) * total)
-            let value = level(at: date) * Double(progress)
-            let depth = plot.maxY - yPos(value)
-            let waveScale = min(1, depth / 14)
-            let y = yPos(value) - LiquidMotion.surfaceOffset(x: x, time: wavePhase, amplitude: amplitude * waveScale)
-            return min(max(y, plot.minY), plot.maxY)
+            return min(max(yPos(level(at: date)), plot.minY), plot.maxY)
         }
 
         // Gridlines and y labels.
@@ -162,11 +159,9 @@ struct ReservoirGraph: View {
             let my = surfaceY(atX: mx)
             let dot = CGRect(x: mx - 5, y: my - 5, width: 10, height: 10)
             context.stroke(Path(ellipseIn: dot.insetBy(dx: -1, dy: -1)), with: .color(SippedTheme.surface), lineWidth: 2)
-            context.fill(Path(ellipseIn: dot), with: .color(point.tint))
-            if mx - lastSymbolX >= 22 {
-                context.draw(
-                    Text(Image(systemName: point.symbol)).font(.caption2.weight(.bold)).foregroundStyle(point.tint),
-                    at: CGPoint(x: mx, y: max(my - 16, plot.minY - 8)))
+            context.fill(Path(ellipseIn: dot), with: .color(color))
+            if mx - lastSymbolX >= 22, let symbol = context.resolveSymbol(id: point.id) {
+                context.draw(symbol, at: CGPoint(x: mx, y: max(my - 19, plot.minY + 11)))
                 lastSymbolX = mx
             }
         }
@@ -193,30 +188,85 @@ struct LiquidColumn: Identifiable, Equatable {
     let label: String
     let value: Double
     let isToday: Bool
+    let percentage: Double?
+    let isOverGoal: Bool
+    let accessibilityDateLabel: String?
+
+    init(id: Date, label: String, value: Double, isToday: Bool,
+         percentage: Double? = nil, isOverGoal: Bool = false,
+         accessibilityDateLabel: String? = nil) {
+        self.id = id
+        self.label = label
+        self.value = value
+        self.isToday = isToday
+        self.percentage = percentage
+        self.isOverGoal = isOverGoal
+        self.accessibilityDateLabel = accessibilityDateLabel
+    }
 }
 
 struct LiquidColumnsChart: View {
     let columns: [LiquidColumn]
     let color: Color
     let valueLabel: (Double) -> String
+    let scaleMaximum: Double?
+    let selectedID: Date?
+    let onSelect: ((Date) -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = Date.distantPast
 
+    init(columns: [LiquidColumn], color: Color, valueLabel: @escaping (Double) -> String,
+         scaleMaximum: Double? = nil, selectedID: Date? = nil,
+         onSelect: ((Date) -> Void)? = nil) {
+        self.columns = columns
+        self.color = color
+        self.valueLabel = valueLabel
+        self.scaleMaximum = scaleMaximum
+        self.selectedID = selectedID
+        self.onSelect = onSelect
+    }
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { timeline in
-            Canvas { context, size in
-                draw(in: &context, size: size, at: timeline.date)
+        GeometryReader { proxy in
+            ZStack {
+                TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { timeline in
+                    Canvas { context, size in
+                        draw(in: &context, size: size, at: timeline.date)
+                    }
+                    .accessibilityHidden(true)
+                }
+
+                HStack(spacing: 10) {
+                    ForEach(columns) { column in
+                        Button { onSelect?(column.id) } label: {
+                            Color.clear
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(accessibilityLabel(for: column))
+                        .accessibilityAddTraits(selectedID == column.id ? .isSelected : [])
+                        .accessibilityIdentifier("history.day.\(column.id.timeIntervalSinceReferenceDate)")
+                    }
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .onAppear { appeared = .now }
         .onChange(of: columns) { appeared = .now }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilitySummary)
     }
 
-    private var accessibilitySummary: String {
-        columns.map { "\($0.isToday ? "Today" : $0.label): \(valueLabel($0.value))" }.joined(separator: ", ")
+    private func accessibilityLabel(for column: LiquidColumn) -> String {
+        let date = column.accessibilityDateLabel ?? (column.isToday ? "Today" : column.label)
+        let value = column.value.isFinite ? max(0, column.value) : 0
+        var result = "\(date), \(valueLabel(value))"
+        if let percentage = column.percentage, percentage.isFinite {
+            result += ", \(percentage.formatted(.number.precision(.fractionLength(0...1)))) percent of daily fluid goal"
+            if column.isOverGoal { result += ", over goal" }
+        }
+        if selectedID == column.id { result += ", selected" }
+        return result
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize, at frameTime: Date) {
@@ -228,8 +278,10 @@ struct LiquidColumnsChart: View {
 
         let progress = reduceMotion ? 1 : LiquidMotion.riseProgress(since: appeared, at: frameTime)
         let wavePhase = reduceMotion ? 0 : frameTime.timeIntervalSinceReferenceDate
-        let maxValue = columns.map(\.value).max() ?? 0
-        let maxIndex = maxValue > 0 ? columns.lastIndex { $0.value == maxValue } : nil
+        let automaticMaximum = columns.map { $0.value.isFinite ? max(0, $0.value) : 0 }.max() ?? 0
+        let maxValue = scaleMaximum.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? automaticMaximum
+        let effectiveMaximum = max(maxValue, 1)
+        let maxIndex = columns.lastIndex { ($0.value.isFinite ? max(0, $0.value) : 0) == automaticMaximum }
 
         let spacing: CGFloat = 10
         let slotWidth = (plot.width - spacing * CGFloat(columns.count - 1)) / CGFloat(columns.count)
@@ -241,11 +293,13 @@ struct LiquidColumnsChart: View {
                                 width: vesselWidth, height: plot.height)
             let vesselPath = Path(roundedRect: vessel, cornerRadius: 12, style: .continuous)
             context.fill(vesselPath, with: .color(SippedTheme.raisedSurface.opacity(0.45)))
+            let selected = selectedID == column.id
             context.stroke(vesselPath, with: .color(SippedTheme.line), lineWidth: 1)
 
-            if column.value > 0, maxValue > 0 {
+            let value = column.value.isFinite ? max(0, column.value) : 0
+            if value > 0 {
                 let inner = vessel.insetBy(dx: 3, dy: 3)
-                let fillHeight = max(inner.height * CGFloat(column.value / maxValue) * progress, 6)
+                let fillHeight = max(inner.height * min(CGFloat(value / effectiveMaximum), 1) * progress, 6)
                 let surfaceLevel = inner.maxY - fillHeight
                 var liquid = Path()
                 if column.isToday, !reduceMotion {
@@ -271,10 +325,16 @@ struct LiquidColumnsChart: View {
                     endPoint: CGPoint(x: inner.midX, y: inner.maxY)))
             }
 
-            if column.value > 0, column.isToday || index == maxIndex {
+            if value > 0, column.isToday || index == maxIndex || selected || column.isOverGoal {
                 context.draw(
-                    Text(valueLabel(column.value)).font(.caption2.bold().monospacedDigit()).foregroundStyle(SippedTheme.secondaryInk),
+                    Text(valueLabel(value)).font(.caption2.bold().monospacedDigit()).foregroundStyle(SippedTheme.secondaryInk),
                     at: CGPoint(x: vessel.midX, y: plot.minY - 10))
+            }
+            if column.isOverGoal {
+                context.draw(
+                    Text(Image(systemName: "exclamationmark.circle.fill"))
+                        .font(.caption2.weight(.bold)).foregroundStyle(.orange),
+                    at: CGPoint(x: vessel.midX, y: plot.minY - 25))
             }
             context.draw(
                 Text(column.label)

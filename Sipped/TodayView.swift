@@ -1,6 +1,11 @@
 import SwiftData
 import SwiftUI
 
+private enum TodayMetricTypography {
+    static let value = Font.system(size: 16, weight: .bold)
+    static let label = Font.system(size: 10, weight: .bold)
+}
+
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -26,7 +31,8 @@ struct TodayView: View {
             guard value > 0 else { return nil }
             runningTotal += value
             return ReservoirPoint(id: log.logID, time: log.loggedAt, level: runningTotal,
-                                  tint: log.category.tint, symbol: log.category.symbol)
+                                  category: log.category, artworkID: log.resolvedContainerArtworkID,
+                                  definitionID: log.sourceDefinitionID)
         }
     }
 
@@ -86,15 +92,15 @@ struct TodayView: View {
             SippedAnimatedNumericText(
                 text: totalCardValue(for: measure)
             )
-                .font(.title3.bold())
+                .font(TodayMetricTypography.value)
                 .lineLimit(1)
-                .minimumScaleFactor(0.55)
+                .fixedSize(horizontal: true, vertical: false)
             Text(measure.name.uppercased())
-                .font(.caption2.bold())
+                .font(TodayMetricTypography.label)
                 .tracking(0.8)
                 .foregroundStyle(measure.color)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
@@ -141,7 +147,6 @@ struct TodayView: View {
                 }
             }
             .id(preferences.selectedMeasure)
-            .sippedBlurReplaceTransition()
         }
         .padding(16)
         .background(SippedTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -151,8 +156,8 @@ struct TodayView: View {
         Button(action: openLogger) {
             VStack(spacing: 12) {
                 Image(systemName: "drop.fill").font(.system(size: 34, weight: .light)).foregroundStyle(SippedTheme.chromeAccent)
-                Text("Your drink record starts here").font(.headline)
-                Text("Log a drink").font(.subheadline.bold()).foregroundStyle(SippedTheme.chromeAccent)
+                Text("Log a drink").font(.headline)
+                Text("Your drink record starts here").font(.subheadline).foregroundStyle(SippedTheme.secondaryInk)
             }
             .frame(maxWidth: .infinity, minHeight: 154)
             .background(SippedTheme.chromeAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 24, style: .continuous))

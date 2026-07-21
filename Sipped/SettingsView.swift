@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var preferences: UserPreferences
     @State private var confirmReset = false
+    @State private var showingGoalEditor = false
 
     var body: some View {
         ScrollView {
@@ -13,6 +14,34 @@ struct SettingsView: View {
                     settingPicker("Units", symbol: "ruler", selection: Binding(get: { preferences.units }, set: { preferences.units = $0; save() }), values: DisplayUnits.allCases)
                     Divider()
                     settingPicker("Appearance", symbol: "circle.lefthalf.filled", selection: Binding(get: { preferences.appearance }, set: { preferences.appearance = $0; save() }), values: AppearancePreference.allCases)
+                }
+
+                settingsPanel("History scale", spacing: 8) {
+                    Button { showingGoalEditor = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: MeasureKind.fluid.symbol)
+                                .foregroundStyle(MeasureKind.fluid.color)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Daily fluid goal")
+                                    .font(.subheadline.weight(.semibold))
+                                Text(preferences.validDailyFluidGoalML.map { DisplayFormatter.volume($0, units: preferences.units) } ?? "Not set")
+                                    .font(.caption)
+                                    .foregroundStyle(SippedTheme.secondaryInk)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(SippedTheme.secondaryInk)
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.dailyFluidGoal")
+                    Text("History compares your daily fluid total with this amount.")
+                        .font(.caption)
+                        .foregroundStyle(SippedTheme.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 settingsPanel("Alcohol calculation", spacing: 8) {
@@ -83,11 +112,16 @@ struct SettingsView: View {
         }
         .scrollIndicators(.hidden)
         .background(SippedTheme.canvas)
+        .sheet(isPresented: $showingGoalEditor) {
+            DailyFluidGoalEditor(preferences: preferences)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .navigationTitle("Settings")
         .sheet(isPresented: $confirmReset) {
             DeleteAllDataConfirmation(confirm: resetAll)
-                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+                .presentationDetents([.height(300)])
         }
     }
 
@@ -189,11 +223,12 @@ private struct DeleteAllDataConfirmation: View {
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
             }
+            .accessibilityIdentifier("settings.deleteAllContent")
             .padding(.horizontal, 24)
-            .padding(.vertical, 18)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SippedTheme.canvas)
     }
 }

@@ -109,12 +109,16 @@ private enum VesselCanvas {
 enum VesselArtworkFit {
     case designCanvas
     case visibleBounds
+    case bottomBaseline
 }
 
 struct VesselPresentationMetrics {
     let canvasSize: CGSize
     let canvasCenter: CGPoint
     let visibleSize: CGSize
+    let visibleBounds: CGRect
+
+    var visibleBottom: CGFloat { visibleBounds.maxY }
 }
 
 enum VesselPresentationMath {
@@ -127,8 +131,15 @@ enum VesselPresentationMath {
         let baseScale = VesselCanvas.scale(in: size)
         let bounds = spec.visibleBounds
         let baseVisibleSize = CGSize(width: bounds.width * baseScale, height: bounds.height * baseScale)
+        let designFrame = VesselCanvas.frame(in: size)
+        let baseVisibleBounds = CGRect(
+            x: designFrame.minX + bounds.minX * baseScale,
+            y: designFrame.minY + bounds.minY * baseScale,
+            width: baseVisibleSize.width,
+            height: baseVisibleSize.height
+        )
 
-        guard fit == .visibleBounds,
+        guard fit != .designCanvas,
               size.width > 0,
               size.height > 0,
               bounds.width > 0,
@@ -137,7 +148,21 @@ enum VesselPresentationMath {
             return VesselPresentationMetrics(
                 canvasSize: size,
                 canvasCenter: CGPoint(x: size.width / 2, y: size.height / 2),
-                visibleSize: baseVisibleSize
+                visibleSize: baseVisibleSize,
+                visibleBounds: baseVisibleBounds
+            )
+        }
+
+        if fit == .bottomBaseline {
+            let baselineOffset = size.height - baseVisibleBounds.maxY
+            return VesselPresentationMetrics(
+                canvasSize: size,
+                canvasCenter: CGPoint(
+                    x: size.width / 2,
+                    y: size.height / 2 + baselineOffset
+                ),
+                visibleSize: baseVisibleSize,
+                visibleBounds: baseVisibleBounds.offsetBy(dx: 0, dy: baselineOffset)
             )
         }
 
@@ -157,7 +182,13 @@ enum VesselPresentationMath {
                 x: targetCenter.x - (bounds.midX - VesselCanvas.designSize.width / 2) * targetScale,
                 y: targetCenter.y - (bounds.midY - VesselCanvas.designSize.height / 2) * targetScale
             ),
-            visibleSize: CGSize(width: bounds.width * targetScale, height: bounds.height * targetScale)
+            visibleSize: CGSize(width: bounds.width * targetScale, height: bounds.height * targetScale),
+            visibleBounds: CGRect(
+                x: targetCenter.x - bounds.width * targetScale / 2,
+                y: targetCenter.y - bounds.height * targetScale / 2,
+                width: bounds.width * targetScale,
+                height: bounds.height * targetScale
+            )
         )
     }
 }
@@ -873,6 +904,7 @@ struct DrinkArtwork: View {
     var definitionID: String? = nil
     var fillFraction: Double = 0.76
     var showsParticles = true
+    var fit: VesselArtworkFit = .designCanvas
 
     var visualSpec: DrinkVisualSpec { DrinkVisualSpec.profile(definitionID: definitionID, category: category) }
     var liquidColor: Color { visualSpec.liquid }
@@ -889,7 +921,8 @@ struct DrinkArtwork: View {
                 showDetails: presentation == .filled,
                 surfaceBand: visualSpec.band,
                 showsParticles: presentation == .filled && showsParticles && visualSpec.isCarbonated,
-                particleSeed: definitionID ?? artworkID
+                particleSeed: definitionID ?? artworkID,
+                fit: fit
             )
 
             if presentation == .emptyQuestionMark {

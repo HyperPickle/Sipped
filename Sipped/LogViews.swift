@@ -10,6 +10,7 @@ struct LogSnapshot {
     let category: DrinkCategory
     let artworkID: String
     let containerID: String?
+    let containerArtworkID: String?
     let containerName: String
     let containerCapacityML: Double
     let consumedML: Double
@@ -25,7 +26,8 @@ struct LogSnapshot {
     init(_ log: DrinkLog) {
         logID = log.logID; loggedAt = log.loggedAt; orderIndex = log.orderIndex
         sourceDefinitionID = log.sourceDefinitionID; drinkName = log.drinkName; category = log.category
-        artworkID = log.artworkID; containerID = log.containerID; containerName = log.containerName
+        artworkID = log.artworkID; containerID = log.containerID; containerArtworkID = log.containerArtworkID
+        containerName = log.containerName
         containerCapacityML = log.containerCapacityML; consumedML = log.consumedML; caffeineMG = log.caffeineMG
         inherentSugarG = log.inherentSugarG; addedSugarG = log.addedSugarG; rawAlcoholML = log.rawAlcoholML
         alcoholByVolume = log.alcoholByVolume; shots = log.shots; milkType = log.milkType; calculationBasis = log.calculationBasis
@@ -34,6 +36,7 @@ struct LogSnapshot {
     func restoredLog() -> DrinkLog {
         DrinkLog(logID: logID, loggedAt: loggedAt, orderIndex: orderIndex, sourceDefinitionID: sourceDefinitionID,
                  drinkName: drinkName, category: category, artworkID: artworkID, containerID: containerID,
+                 containerArtworkID: containerArtworkID,
                  containerName: containerName, containerCapacityML: containerCapacityML, consumedML: consumedML,
                  caffeineMG: caffeineMG, inherentSugarG: inherentSugarG, addedSugarG: addedSugarG,
                  rawAlcoholML: rawAlcoholML, alcoholByVolume: alcoholByVolume, shots: shots,
@@ -49,7 +52,8 @@ struct LogEntryRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 7).fill(log.category.tint.opacity(0.13)).frame(width: 56, height: 64)
-                DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID).frame(width: 42, height: 56)
+                LoggedDrinkArtwork(log: log)
+                    .frame(width: 42, height: 56)
             }
             VStack(alignment: .leading, spacing: 5) {
                 Text(log.drinkName).font(.headline).lineLimit(2)
@@ -90,7 +94,7 @@ struct EntryDetailView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     VStack(spacing: 8) {
-                        DrinkArtwork(category: log.category, artworkID: log.artworkID, definitionID: log.sourceDefinitionID)
+                        LoggedDrinkArtwork(log: log)
                             .frame(height: 148)
                         SippedAnimatedNumericText(
                             text: DisplayFormatter.volume(log.consumedML, units: preferences.units)
@@ -149,6 +153,37 @@ struct EntryDetailView: View {
     }
 }
 
+struct LoggedDrinkArtwork: View {
+    let log: DrinkLog
+    var fillFraction: Double = 0.76
+    var showsParticles = true
+    var fit: VesselArtworkFit = .designCanvas
+
+    var body: some View {
+        DrinkArtwork(
+            category: log.category,
+            artworkID: log.resolvedContainerArtworkID,
+            definitionID: log.sourceDefinitionID,
+            fillFraction: fillFraction,
+            showsParticles: showsParticles,
+            fit: fit
+        )
+    }
+}
+
+extension DrinkLog {
+    var resolvedContainerArtworkID: String {
+        if let artworkID = containerArtworkID {
+            return artworkID
+        }
+        if let containerID,
+           let builtIn = CatalogSeeder.builtInContainers.first(where: { $0.containerID == containerID }) {
+            return builtIn.artworkID
+        }
+        return category.defaultArtwork
+    }
+}
+
 struct EditLogView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -172,7 +207,8 @@ struct EditLogView: View {
     }
 
     private var containerArtworkID: String {
-        containers.first(where: { $0.containerID == log.containerID })?.artworkID
+        log.containerArtworkID
+            ?? containers.first(where: { $0.containerID == log.containerID })?.artworkID
             ?? log.category.defaultArtwork
     }
 

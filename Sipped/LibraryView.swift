@@ -223,10 +223,18 @@ struct DrinkCardGrid: View {
             ForEach(drinks) { drink in
                 Button { action(drink) } label: {
                     VStack(spacing: 12) {
-                        DrinkArtwork(category: drink.category, artworkID: drink.artworkID, definitionID: drink.definitionID)
+                        DrinkArtwork(
+                            category: drink.category,
+                            artworkID: drink.artworkID,
+                            definitionID: drink.definitionID,
+                            fit: .bottomBaseline
+                        )
                             .frame(height: accessibilityLayout ? 190 : 132)
                             .frame(maxWidth: .infinity)
-                            .scaleEffect(drink.definitionID == "water-still" ? 0.9 : 1)
+                            .scaleEffect(
+                                drink.definitionID == "water-still" ? 0.9 : 1,
+                                anchor: .bottom
+                            )
                         Text(drink.name)
                             .font(GalleryStyle.titleFont)
                             .multilineTextAlignment(.center)
@@ -284,7 +292,8 @@ struct ContainerCardGrid: View {
                             showDetails: surfaceBand != nil,
                             surfaceBand: surfaceBand,
                             showsParticles: showsParticles,
-                            particleSeed: "\(particleSeed)-\(container.containerID)"
+                            particleSeed: "\(particleSeed)-\(container.containerID)",
+                            fit: .bottomBaseline
                         )
                             .frame(height: artworkHeight(for: container))
                             .frame(height: accessibilityLayout ? 190 : 136, alignment: .bottom)

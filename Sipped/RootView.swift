@@ -11,8 +11,10 @@ struct RootView: View {
     var body: some View {
         Group {
             if let preference = preferences.first {
-                if preference.onboardingComplete {
+                if preference.onboardingComplete && preference.validDailyFluidGoalML != nil {
                     MainTabView(preferences: preference, environment: environment)
+                } else if preference.onboardingComplete {
+                    OnboardingView(preferences: preference, goalOnly: true)
                 } else {
                     OnboardingView(preferences: preference)
                 }
@@ -37,6 +39,7 @@ struct RootView: View {
 
     private var rootPhase: String {
         guard let preference = preferences.first else { return seedError == nil ? "loading" : "error" }
-        return preference.onboardingComplete ? "main" : "onboarding"
+        if preference.onboardingComplete && preference.validDailyFluidGoalML != nil { return "main" }
+        return "onboarding"
     }
 }

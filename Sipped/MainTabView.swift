@@ -21,9 +21,9 @@ struct MainTabView: View {
     @State private var showingLog = false
     @State private var showingSettings = false
     @State private var librarySearchFocused = false
-    @State private var tabDirection: SippedMotionDirection = .forward
     private var accessibilityLayout: Bool { dynamicTypeSize >= .accessibility1 }
     private var showsBottomChrome: Bool { !showingLog && !librarySearchFocused }
+    private var tabTransition: AnyTransition { reduceMotion ? .identity : .opacity }
 
     init(preferences: UserPreferences, environment: AppEnvironment) {
         self.preferences = preferences
@@ -46,7 +46,7 @@ struct MainTabView: View {
                 }
             }
             .id(tab)
-            .transition(reduceMotion ? .opacity : SippedMotion.screenTransition(direction: tabDirection))
+            .transition(tabTransition)
 
             if showsBottomChrome {
                 ZStack {
@@ -95,7 +95,11 @@ struct MainTabView: View {
         .animation(reduceMotion ? SippedMotion.reduced : SippedMotion.element, value: showsBottomChrome)
         .background(SippedTheme.canvas.ignoresSafeArea())
         .sheet(isPresented: $showingLog) {
-            LoggingFlowView(preferences: preferences, environment: environment)
+            LoggingFlowView(
+                preferences: preferences,
+                environment: environment,
+                onComplete: { selectTab(.today) }
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -103,12 +107,12 @@ struct MainTabView: View {
     }
 
     private func selectTab(_ newTab: AppTab) {
-        guard newTab != tab,
-              let oldIndex = AppTab.allCases.firstIndex(of: tab),
-              let newIndex = AppTab.allCases.firstIndex(of: newTab)
-        else { return }
-        tabDirection = SippedMotion.direction(from: oldIndex, to: newIndex)
-        withAnimation(reduceMotion ? SippedMotion.reduced : SippedMotion.screen) {
+        guard newTab != tab else { return }
+        guard !reduceMotion else {
+            tab = newTab
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.30)) {
             tab = newTab
         }
     }

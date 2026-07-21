@@ -55,6 +55,10 @@ enum SippedLayout {
     static let floatingChromeContentClearance: CGFloat = 112
 }
 
+enum SippedTypography {
+    static let onboardingCTA: Font = .title3.weight(.bold)
+}
+
 enum GalleryStyle {
     static let titleFont: Font = .headline
     static let capacityFont: Font = .subheadline.weight(.semibold).monospacedDigit()
@@ -243,10 +247,11 @@ struct SippedPrimaryButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var tint: Color = SippedTheme.chromeAccent
     var foreground: Color = SippedTheme.onChromeAccent
+    var font: Font = .headline
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(font)
             .foregroundStyle(foreground)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(tint.opacity(configuration.isPressed ? 0.78 : 1),
